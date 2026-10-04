@@ -242,6 +242,7 @@ makePuck(){
   this.puck.label="puck";
 this.puck.playerShape=this.currentPuck;
 this.puck.drawShape=d;
+this.puck.drawScale=70;
 
   Matter.World.add(this.world,this.puck);
 }
@@ -267,8 +268,9 @@ console.log("★ マレットの形データ:", side, d);
     );
 
    b.label="mallet"+i;
-   b.player=i;
-   b.drawShape=d;
+  b.player=i;
+b.drawShape=d;
+b.drawScale=105;
 
     this.mallets[i]=b;
     Matter.World.add(this.world,b);
@@ -350,18 +352,42 @@ console.log("★ マレットの形データ:", side, d);
   if(shape && shape.length>2){
     c.beginPath();
 
+   drawBody(b,fill){
+  const c=this.ctx;
+
+  c.save();
+  c.translate(b.position.x,b.position.y);
+  c.rotate(b.angle);
+
+  c.fillStyle=fill;
+  c.strokeStyle="#18213a";
+  c.lineWidth=3;
+
+  const shape=b.drawShape;
+  const scale=b.drawScale;
+
+  if(shape && shape.length>2){
+    c.beginPath();
+
     c.moveTo(
-      shape[0].x*70,
-      shape[0].y*70
+      shape[0].x*scale,
+      shape[0].y*scale
     );
 
     for(const p of shape.slice(1)){
       c.lineTo(
-        p.x*70,
-        p.y*70
+        p.x*scale,
+        p.y*scale
       );
     }
 
+    c.closePath();
+    c.fill();
+    c.stroke();
+  }
+
+  c.restore();
+}
     c.closePath();
     c.fill();
     c.stroke();
