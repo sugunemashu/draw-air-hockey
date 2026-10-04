@@ -15,22 +15,27 @@
 
   const $ = id => document.getElementById(id);
 
-  const cfg = window.AIR_HOCKEY_CONFIG || {};
+  const cfg =
+    window.AIR_HOCKEY_CONFIG || {};
 
 
   const hasCloud =
-    cfg.SUPABASE_URL &&
-    cfg.SUPABASE_URL.includes("supabase.co") &&
-    cfg.SUPABASE_ANON_KEY &&
-    !cfg.SUPABASE_ANON_KEY.includes("YOUR-");
+    !!(
+      window.supabase &&
+      cfg.SUPABASE_URL &&
+      cfg.SUPABASE_URL.includes("supabase.co") &&
+      cfg.SUPABASE_ANON_KEY &&
+      !cfg.SUPABASE_ANON_KEY.includes("YOUR-")
+    );
 
 
-  const supa = hasCloud
-    ? window.supabase.createClient(
-        cfg.SUPABASE_URL,
-        cfg.SUPABASE_ANON_KEY
-      )
-    : null;
+  const supa =
+    hasCloud
+      ? window.supabase.createClient(
+          cfg.SUPABASE_URL,
+          cfg.SUPABASE_ANON_KEY
+        )
+      : null;
 
 
 
@@ -44,7 +49,8 @@
 
     role: null,
 
-    playerId: crypto.randomUUID(),
+    playerId:
+      crypto.randomUUID(),
 
     ready: false,
 
@@ -70,19 +76,38 @@
 
 
   // =========================================================
-  // UI
+  // SAFE UI
   // =========================================================
 
   function msg(text) {
 
-    $("menuMsg").textContent = text;
+    const el = $("menuMsg");
+
+    if (el) {
+      el.textContent = text;
+    }
 
   }
 
 
   function status(text) {
 
-    $("status").textContent = text;
+    const el = $("status");
+
+    if (el) {
+      el.textContent = text;
+    }
+
+  }
+
+
+  function setText(id, text) {
+
+    const el = $(id);
+
+    if (el) {
+      el.textContent = text;
+    }
 
   }
 
@@ -96,7 +121,13 @@
       "result"
     ].forEach(x => {
 
-      $(x).classList.toggle(
+      const el = $(x);
+
+      if (!el) {
+        return;
+      }
+
+      el.classList.toggle(
         "hidden",
         x !== id
       );
@@ -113,10 +144,39 @@
 
   function setupPad(canvasId, key) {
 
-    const canvas = $(canvasId);
+    const canvas =
+      $(canvasId);
 
-    const ctx = canvas.getContext("2d");
 
+    /*
+      ★重要
+
+      HTML側にキャンバスが無い場合でも
+      JavaScript全体をクラッシュさせない。
+    */
+
+    if (!canvas) {
+
+      console.warn(
+        "[DRAW AIR HOCKEY] canvas not found:",
+        canvasId
+      );
+
+      return;
+
+    }
+
+
+    const ctx =
+      canvas.getContext("2d");
+
+
+    /*
+      色・線幅のUI。
+
+      HTMLにまだ存在しない場合でも
+      デフォルト値で動作させる。
+    */
 
     const colorInput =
       $(`${key}Color`);
@@ -128,15 +188,34 @@
       $(`${key}WidthValue`);
 
 
-    let drawing = false;
+    let currentColor =
+      colorInput?.value ||
+      "#ffffff";
+
+
+    let currentWidth =
+      Number(
+        widthInput?.value || 6
+      );
+
+
+    let drawing =
+      false;
+
 
     let points = [];
 
+
+
+    // =======================================================
+    // POSITION
+    // =======================================================
 
     function getPosition(e) {
 
       const r =
         canvas.getBoundingClientRect();
+
 
       return {
 
@@ -155,12 +234,12 @@
     }
 
 
+
+    // =======================================================
+    // DRAW PREVIEW
+    // =======================================================
+
     function drawLine() {
-
-      if (points.length < 2) {
-        return;
-      }
-
 
       ctx.clearRect(
         0,
@@ -170,7 +249,13 @@
       );
 
 
+      if (points.length < 1) {
+        return;
+      }
+
+
       ctx.beginPath();
+
 
       ctx.moveTo(
         points[0].x,
@@ -193,54 +278,82 @@
 
 
       /*
-        最後に最初の点へ戻す。
+        ★閉じない
 
-        これによって、
-        描いた線が閉じた形になる。
+        ユーザーが描いた線そのものを
+        そのまま表示する。
+
+        以前の closePath() だと、
+        最後の点と最初の点が勝手に
+        接続されてしまう。
       */
-
-      ctx.closePath();
 
 
       ctx.strokeStyle =
-        colorInput.value;
+        currentColor;
+
 
       ctx.lineWidth =
-        Number(widthInput.value);
+        currentWidth;
 
-      ctx.lineCap = "round";
 
-      ctx.lineJoin = "round";
+      ctx.lineCap =
+        "round";
+
+
+      ctx.lineJoin =
+        "round";
+
 
       ctx.stroke();
 
     }
 
 
+
+    // =======================================================
+    // POINTER DOWN
+    // =======================================================
+
     function down(e) {
 
       e.preventDefault();
 
-      drawing = true;
+
+      drawing =
+        true;
+
 
       points = [
         getPosition(e)
       ];
 
-      canvas.setPointerCapture(
-        e.pointerId
-      );
+
+      try {
+
+        canvas.setPointerCapture(
+          e.pointerId
+        );
+
+      } catch (_) {}
+
 
       drawLine();
 
     }
 
 
+
+    // =======================================================
+    // POINTER MOVE
+    // =======================================================
+
     function move(e) {
 
       if (!drawing) {
         return;
       }
+
 
       e.preventDefault();
 
@@ -255,6 +368,11 @@
     }
 
 
+
+    // =======================================================
+    // POINTER UP
+    // =======================================================
+
     function up(e) {
 
       if (!drawing) {
@@ -262,10 +380,11 @@
       }
 
 
-      drawing = false;
+      drawing =
+        false;
 
 
-      if (points.length >= 3) {
+      if (points.length >= 2) {
 
         const polygon =
           normalizePolygon(
@@ -275,38 +394,15 @@
           );
 
 
-        /*
-          描いた線そのものを保存する。
-
-          以前は polygon だけ保存していたため、
-          ゲーム画面で色付きの物理図形が
-          描画されてしまっていた。
-
-          今回は、
-
-          polygon
-          color
-          width
-
-          をセットで保存する。
-        */
-
         state.drawings[key] = {
 
           polygon,
 
           color:
-            colorInput.value,
+            currentColor,
 
           width:
-            Number(widthInput.value),
-
-          /*
-            描画データの基準サイズ。
-
-            ゲーム中にこのサイズを基準として
-            実際のマレット・パックを描画する。
-          */
+            currentWidth,
 
           sourceWidth:
             canvas.width,
@@ -320,6 +416,11 @@
 
     }
 
+
+
+    // =======================================================
+    // EVENTS
+    // =======================================================
 
     canvas.addEventListener(
       "pointerdown",
@@ -345,62 +446,115 @@
     );
 
 
-    colorInput.addEventListener(
-      "input",
-      () => {
+    /*
+      色変更
+    */
 
-        widthValue.textContent =
-          widthInput.value + "px";
+    if (colorInput) {
 
-        drawLine();
+      colorInput.addEventListener(
+        "input",
+        () => {
 
-      }
-    );
+          currentColor =
+            colorInput.value ||
+            "#ffffff";
 
+          drawLine();
 
-    widthInput.addEventListener(
-      "input",
-      () => {
+        }
+      );
 
-        widthValue.textContent =
-          widthInput.value + "px";
-
-        drawLine();
-
-      }
-    );
+    }
 
 
-    $(`[data-clear="${key}"]`)
-      .onclick = () => {
+    /*
+      線幅変更
+    */
 
-        ctx.clearRect(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+    if (widthInput) {
 
-        points = [];
+      widthInput.addEventListener(
+        "input",
+        () => {
 
-        state.drawings[key] = null;
+          currentWidth =
+            Number(
+              widthInput.value || 6
+            );
 
-      };
+
+          if (widthValue) {
+
+            widthValue.textContent =
+              currentWidth + "px";
+
+          }
+
+
+          drawLine();
+
+        }
+      );
+
+    }
+
+
+    /*
+      初期表示
+    */
+
+    if (widthValue) {
+
+      widthValue.textContent =
+        currentWidth + "px";
+
+    }
+
+
+    /*
+      クリアボタン
+
+      ★ここもHTMLに無くても
+      エラーにしない。
+    */
+
+    const clearButton =
+      document.querySelector(
+        `[data-clear="${key}"]`
+      );
+
+
+    if (clearButton) {
+
+      clearButton.onclick =
+        () => {
+
+          ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+
+          points = [];
+
+
+          state.drawings[key] =
+            null;
+
+        };
+
+    }
 
   }
 
 
 
-  /*
-    描いた線を物理計算用の座標へ変換。
-
-    - 中心を0,0にする
-    - 最大サイズを1にする
-
-    これにより、
-    ゲーム画面上で好きなサイズに
-    拡大縮小できる。
-  */
+  // =========================================================
+  // NORMALIZE DRAWING
+  // =========================================================
 
   function normalizePolygon(
     points,
@@ -408,25 +562,45 @@
     height
   ) {
 
+    if (
+      !points ||
+      points.length === 0
+    ) {
+
+      return [];
+
+    }
+
+
     const minX =
       Math.min(
-        ...points.map(p => p.x)
+        ...points.map(
+          p => p.x
+        )
       );
+
 
     const maxX =
       Math.max(
-        ...points.map(p => p.x)
+        ...points.map(
+          p => p.x
+        )
       );
 
 
     const minY =
       Math.min(
-        ...points.map(p => p.y)
+        ...points.map(
+          p => p.y
+        )
       );
+
 
     const maxY =
       Math.max(
-        ...points.map(p => p.y)
+        ...points.map(
+          p => p.y
+        )
       );
 
 
@@ -446,22 +620,24 @@
 
 
     /*
-      最大28点まで。
-
-      物理計算を重くしすぎないため。
+      物理演算を重くしすぎないため
+      最大28点。
     */
 
     const step =
       Math.max(
         1,
-        Math.ceil(points.length / 28)
+        Math.ceil(
+          points.length / 28
+        )
       );
 
 
     return points
 
       .filter(
-        (_, i) => i % step === 0
+        (_, i) =>
+          i % step === 0
       )
 
       .map(p => ({
@@ -476,6 +652,11 @@
 
   }
 
+
+
+  // =========================================================
+  // SETUP DRAWING CANVASES
+  // =========================================================
 
   setupPad(
     "puckCanvas",
@@ -505,6 +686,27 @@
     }
 
 
+    /*
+      古いチャンネルが残っている場合は
+      一旦解除する。
+    */
+
+    if (state.channel) {
+
+      try {
+
+        await supa.removeChannel(
+          state.channel
+        );
+
+      } catch (_) {}
+
+      state.channel =
+        null;
+
+    }
+
+
     state.channel =
       supa.channel(
         "air-" + room,
@@ -517,6 +719,10 @@
         }
       );
 
+
+    // -------------------------------------------------------
+    // SIGNAL
+    // -------------------------------------------------------
 
     state.channel.on(
       "broadcast",
@@ -531,6 +737,10 @@
     );
 
 
+    // -------------------------------------------------------
+    // STATE
+    // -------------------------------------------------------
+
     state.channel.on(
       "broadcast",
       {
@@ -543,6 +753,10 @@
       }
     );
 
+
+    // -------------------------------------------------------
+    // READY
+    // -------------------------------------------------------
 
     state.channel.on(
       "broadcast",
@@ -557,6 +771,10 @@
     );
 
 
+    // -------------------------------------------------------
+    // START
+    // -------------------------------------------------------
+
     state.channel.on(
       "broadcast",
       {
@@ -569,6 +787,10 @@
       }
     );
 
+
+    // -------------------------------------------------------
+    // RESET
+    // -------------------------------------------------------
 
     state.channel.on(
       "broadcast",
@@ -599,7 +821,14 @@
 
 
 
-  function send(event, payload) {
+  // =========================================================
+  // SEND
+  // =========================================================
+
+  function send(
+    event,
+    payload = {}
+  ) {
 
     if (!state.channel) {
       return;
@@ -608,7 +837,8 @@
 
     state.channel.send({
 
-      type: "broadcast",
+      type:
+        "broadcast",
 
       event,
 
@@ -644,28 +874,19 @@
 
 
     /*
-      ★重要修正
+      ★重要
 
-      以前は、
+      HOSTがGUESTからsignalを受信しても
+      HOST → GUESTに変更しない。
 
-        hostがguestからsignalを受信
-        ↓
-        role = guest
-        host = false
+      これをしないと、
 
-      となっていた。
-
-      これが、
-
-      ・自分のマレットが消える
-      ・相手マレットが自陣へ来る
       ・左右が逆になる
+      ・自分のマレットが消える
+      ・相手マレットが自陣に来る
 
-      原因の一つ。
-
-      ホストは絶対にhostのままにする。
+      などの問題が発生する。
     */
-
 
     if (state.host) {
 
@@ -689,10 +910,7 @@
 
 
     /*
-      guest側。
-
-      guestはsignalを受け取った場合、
-      相手がhostだと判断。
+      GUEST側
     */
 
     state.opponent = {
@@ -704,11 +922,16 @@
     };
 
 
-    state.role = "guest";
+    state.role =
+      "guest";
 
-    state.host = false;
 
-    state.ready = false;
+    state.host =
+      false;
+
+
+    state.ready =
+      false;
 
 
     show("draw");
@@ -729,6 +952,7 @@
   function onReady(p) {
 
     if (
+      !p ||
       p.from === state.playerId
     ) {
 
@@ -743,13 +967,14 @@
 
       ...p,
 
-      ready: true
+      ready:
+        true
 
     };
 
 
     /*
-      ホストだけがゲーム開始を決定する。
+      HOSTだけが開始する。
     */
 
     if (
@@ -771,13 +996,19 @@
       send(
         "start",
         {
+
           drawings,
-          seed: Math.random()
+
+          seed:
+            Math.random()
+
         }
       );
 
 
-      startGame(drawings);
+      startGame(
+        drawings
+      );
 
     }
 
@@ -786,57 +1017,61 @@
 
 
   // =========================================================
-  // START
+  // START FROM HOST
   // =========================================================
 
   function startFromHost(p) {
 
-    if (!p || !p.drawings) {
+    if (
+      !p ||
+      !p.drawings
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+      HOST自身はSTARTを受信しても
+      何もしない。
+
+      HOSTはonReady()で開始済み。
+    */
+
+    if (state.host) {
       return;
     }
 
 
     /*
-      guest側はホストから
-
-        hostの描画
-
-      を受け取る。
-
-
-      自分の描画は既に
-
-        state.drawings
-
-      にある。
+      GUESTだけがここに来る。
     */
 
-    if (state.role === "guest") {
+    const drawings = {
 
-      const drawings = {
+      host:
+        p.drawings.host,
 
-        host:
-          p.drawings.host,
+      guest:
+        p.drawings.guest
 
-        guest:
-          p.drawings.guest
-
-      };
+    };
 
 
-      state.opponent = {
+    state.opponent = {
 
-        ...(state.opponent || {}),
+      ...(state.opponent || {}),
 
-        drawings:
-          p.drawings.host
+      drawings:
+        p.drawings.host
 
-      };
+    };
 
 
-      startGame(drawings);
-
-    }
+    startGame(
+      drawings
+    );
 
   }
 
@@ -851,6 +1086,7 @@
     if (
       state.host ||
       !state.running ||
+      !p ||
       p.from === state.playerId
     ) {
 
@@ -861,13 +1097,19 @@
 
     if (state.game) {
 
-      state.game.applyRemote(p);
+      state.game.applyRemote(
+        p
+      );
 
     }
 
   }
 
 
+
+  // =========================================================
+  // RESET
+  // =========================================================
 
   function resetRound(p) {
 
@@ -878,7 +1120,9 @@
 
     if (state.game) {
 
-      state.game.remoteReset(p);
+      state.game.remoteReset(
+        p
+      );
 
     }
 
@@ -887,188 +1131,240 @@
 
 
   // =========================================================
-  // ROOM
+  // ROOM CODE
   // =========================================================
 
-async function createRoom(){
-
-  if(!supa){
-    msg("Supabaseが設定されていません。config.jsを確認してください。");
-    return;
-  }
-
-  try{
-
-    msg("ルームを作成しています…");
-    status("ルーム作成中…");
-
-    /*
-      DBへSELECTして空き番号を探す方式をやめる。
-
-      これまでは
-
-        SELECT → 空いている？
-        ↓
-        INSERT
-
-      という2段階だったため、
-      SELECTの権限/RLSで失敗すると
-      ルーム作成自体ができなくなっていた。
-
-      今回はINSERTを直接試す。
-    */
+  function randomRoomCode() {
 
     const chars =
       "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 
-    let created = false;
-    let lastError = null;
+    let code = "";
 
 
-    /*
-      最大10回までコードを変えてINSERT。
+    for (
+      let i = 0;
+      i < 5;
+      i++
+    ) {
 
-      5桁なので衝突確率はかなり低い。
-      万一同じコードが存在していても、
-      別のコードで再試行する。
-    */
-
-    for(let attempt = 0; attempt < 10; attempt++){
-
-      let code = "";
-
-      for(let i = 0; i < 5; i++){
-
-        code += chars[
+      code +=
+        chars[
           Math.floor(
-            Math.random() * chars.length
+            Math.random() *
+            chars.length
           )
         ];
-
-      }
-
-
-      const {
-        error
-      } = await supa
-        .from("rooms")
-        .insert({
-
-          code: code,
-
-          host_id:
-            state.playerId,
-
-          guest_id:
-            null,
-
-          status:
-            "waiting"
-
-        });
-
-
-      if(!error){
-
-        state.room = code;
-
-        state.role = "host";
-
-        state.host = true;
-
-        state.ready = false;
-
-        state.opponent = null;
-
-
-        /*
-          ルーム作成成功後にだけ
-          通信チャンネルを開く。
-        */
-
-        await openChannel(code);
-
-
-        show("draw");
-
-
-        status(
-          "ルーム " + code
-        );
-
-
-        msg(
-          "部屋番号: " +
-          code +
-          "　この番号を相手に伝えてください。"
-        );
-
-
-        /*
-          相手に「ホストがいる」と知らせる。
-        */
-
-        send(
-          "signal",
-          {
-            role: "host"
-          }
-        );
-
-
-        created = true;
-
-        break;
-
-      }
-
-
-      lastError = error;
-
-
-      /*
-        primary key(code)の重複なら
-        次のコードで再試行。
-
-        それ以外のエラーなら
-        無駄に10回繰り返さない。
-      */
-
-      const text =
-        String(
-          error.message || ""
-        ).toLowerCase();
-
-
-      const isDuplicate =
-        error.code === "23505" ||
-        text.includes("duplicate") ||
-        text.includes("already exists");
-
-
-      if(!isDuplicate){
-
-        break;
-
-      }
 
     }
 
 
-    if(!created){
+    return code;
+
+  }
+
+
+
+  // =========================================================
+  // CREATE ROOM
+  // =========================================================
+
+  async function createRoom() {
+
+    if (!supa) {
+
+      msg(
+        "Supabaseが設定されていません。config.jsを確認してください。"
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      msg(
+        "ルームを作成しています…"
+      );
+
+
+      status(
+        "ルーム作成中…"
+      );
+
+
+      let created =
+        false;
+
+
+      let lastError =
+        null;
+
+
+      /*
+        SELECTでコードを確認してから
+        INSERTする方式は使わない。
+
+        直接INSERTする。
+      */
+
+      for (
+        let attempt = 0;
+        attempt < 10;
+        attempt++
+      ) {
+
+        const code =
+          randomRoomCode();
+
+
+        const {
+          error
+        } =
+          await supa
+            .from("rooms")
+            .insert({
+
+              code,
+
+              host_id:
+                state.playerId,
+
+              guest_id:
+                null,
+
+              status:
+                "waiting"
+
+            });
+
+
+        if (!error) {
+
+          state.room =
+            code;
+
+
+          state.role =
+            "host";
+
+
+          state.host =
+            true;
+
+
+          state.ready =
+            false;
+
+
+          state.opponent =
+            null;
+
+
+          await openChannel(
+            code
+          );
+
+
+          show("draw");
+
+
+          status(
+            "ルーム " + code
+          );
+
+
+          msg(
+            "部屋番号: " +
+            code +
+            "　この番号を相手に伝えてください。"
+          );
+
+
+          send(
+            "signal",
+            {
+              role:
+                "host"
+            }
+          );
+
+
+          created =
+            true;
+
+
+          break;
+
+        }
+
+
+        lastError =
+          error;
+
+
+        const text =
+          String(
+            error.message ||
+            ""
+          ).toLowerCase();
+
+
+        const isDuplicate =
+          error.code === "23505" ||
+          text.includes(
+            "duplicate"
+          ) ||
+          text.includes(
+            "already exists"
+          );
+
+
+        if (!isDuplicate) {
+          break;
+        }
+
+      }
+
+
+      if (!created) {
+
+        console.error(
+          "[DRAW AIR HOCKEY] ルーム作成失敗",
+          lastError
+        );
+
+
+        msg(
+          "ルーム作成に失敗しました: " +
+          (
+            lastError?.message ||
+            "原因不明"
+          )
+        );
+
+
+        status(
+          "ルーム作成失敗"
+        );
+
+      }
+
+    } catch (error) {
 
       console.error(
-        "[DRAW AIR HOCKEY] ルーム作成失敗",
-        lastError
+        "[DRAW AIR HOCKEY] createRoom error",
+        error
       );
 
 
       msg(
-        "ルーム作成に失敗しました: " +
+        "ルーム作成中にエラーが発生しました: " +
         (
-          lastError?.message ||
-          "原因不明"
+          error?.message ||
+          error
         )
       );
 
@@ -1079,86 +1375,13 @@ async function createRoom(){
 
     }
 
-  }catch(error){
-
-    console.error(
-      "[DRAW AIR HOCKEY] createRoom error",
-      error
-    );
-
-
-    msg(
-      "ルーム作成中にエラーが発生しました: " +
-      (
-        error?.message ||
-        error
-      )
-    );
-
-
-    status(
-      "ルーム作成失敗"
-    );
-
-  }
-
-}
-    const chars =
-      "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-
-    for (
-      let n = 0;
-      n < 20;
-      n++
-    ) {
-
-      let code = "";
-
-
-      for (
-        let i = 0;
-        i < 5;
-        i++
-      ) {
-
-        code +=
-          chars[
-            Math.floor(
-              Math.random() *
-              chars.length
-            )
-          ];
-
-      }
-
-
-      const {
-        data
-      } =
-        await supa
-          .from("rooms")
-          .select("code")
-          .eq("code", code)
-          .maybeSingle();
-
-
-      if (!data) {
-
-        return code;
-
-      }
-
-    }
-
-
-    throw new Error(
-      "コード生成失敗"
-    );
-
   }
 
 
+
+  // =========================================================
+  // JOIN ROOM
+  // =========================================================
 
   async function joinRoom() {
 
@@ -1173,9 +1396,23 @@ async function createRoom(){
     }
 
 
+    const input =
+      $("roomInput");
+
+
+    if (!input) {
+
+      msg(
+        "roomInput がHTMLにありません。"
+      );
+
+      return;
+
+    }
+
+
     const code =
-      $("roomInput")
-        .value
+      input.value
         .trim()
         .toUpperCase();
 
@@ -1191,83 +1428,149 @@ async function createRoom(){
     }
 
 
-    const {
-      data,
-      error
-    } =
-      await supa
-        .from("rooms")
-        .select("*")
-        .eq("code", code)
-        .eq("status", "waiting")
-        .maybeSingle();
+    try {
 
-
-    if (
-      error ||
-      !data
-    ) {
-
-      msg(
-        "そのルームは見つからないか、満員です。"
+      status(
+        "ルームを検索しています…"
       );
 
-      return;
 
-    }
-
-
-    const {
-      error: upErr
-    } =
-      await supa
-        .from("rooms")
-        .update({
-
-          guest_id:
-            state.playerId,
-
-          status:
-            "playing"
-
-        })
-        .eq("code", code)
-        .eq("status", "waiting");
+      const {
+        data,
+        error
+      } =
+        await supa
+          .from("rooms")
+          .select("*")
+          .eq(
+            "code",
+            code
+          )
+          .eq(
+            "status",
+            "waiting"
+          )
+          .maybeSingle();
 
 
-    if (upErr) {
+      if (
+        error ||
+        !data
+      ) {
 
-      msg(upErr.message);
-
-      return;
-
-    }
-
-
-    state.room = code;
-
-    state.role = "guest";
-
-    state.host = false;
+        console.error(
+          "[DRAW AIR HOCKEY] join search error",
+          error
+        );
 
 
-    await openChannel(code);
+        msg(
+          "そのルームは見つからないか、満員です。"
+        );
 
 
-    show("draw");
+        return;
 
-
-    status(
-      "ルーム " + code
-    );
-
-
-    send(
-      "signal",
-      {
-        role: "guest"
       }
-    );
+
+
+      const {
+        error:
+          upErr
+      } =
+        await supa
+          .from("rooms")
+          .update({
+
+            guest_id:
+              state.playerId,
+
+            status:
+              "playing"
+
+          })
+          .eq(
+            "code",
+            code
+          )
+          .eq(
+            "status",
+            "waiting"
+          );
+
+
+      if (upErr) {
+
+        console.error(
+          "[DRAW AIR HOCKEY] join update error",
+          upErr
+        );
+
+
+        msg(
+          upErr.message
+        );
+
+
+        return;
+
+      }
+
+
+      state.room =
+        code;
+
+
+      state.role =
+        "guest";
+
+
+      state.host =
+        false;
+
+
+      state.ready =
+        false;
+
+
+      await openChannel(
+        code
+      );
+
+
+      show("draw");
+
+
+      status(
+        "ルーム " + code
+      );
+
+
+      send(
+        "signal",
+        {
+          role:
+            "guest"
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "[DRAW AIR HOCKEY] joinRoom error",
+        error
+      );
+
+
+      msg(
+        "参加中にエラーが発生しました: " +
+        (
+          error?.message ||
+          error
+        )
+      );
+
+    }
 
   }
 
@@ -1290,193 +1593,355 @@ async function createRoom(){
     }
 
 
-    show("draw");
+    try {
+
+      show("draw");
 
 
-    status(
-      "オンライン対戦相手を検索中…"
-    );
+      status(
+        "オンライン対戦相手を検索中…"
+      );
 
 
-    msg(
-      "同じくマッチング待ちのプレイヤーを探しています。"
-    );
+      msg(
+        "同じくマッチング待ちのプレイヤーを探しています。"
+      );
 
 
-    const ticket =
-      crypto.randomUUID();
+      const ticket =
+        crypto.randomUUID();
 
 
-    state.queueId =
-      ticket;
+      state.queueId =
+        ticket;
 
 
-    const {
-      data
-    } =
-      await supa
-        .from("match_queue")
-        .select("*")
-        .eq("status", "waiting")
-        .neq(
-          "player_id",
-          state.playerId
-        )
-        .limit(1)
-        .maybeSingle();
-
-
-    if (data) {
-
-      const room =
-        await uniqueCode();
-
+      /*
+        既に待機中のプレイヤーを探す。
+      */
 
       const {
-        error
+        data:
+          waitingPlayer,
+        error:
+          searchError
       } =
-      await supa
-        .from("rooms")
-        .insert({
-
-          code: room,
-
-          host_id:
-            data.player_id,
-
-          guest_id:
-            state.playerId,
-
-          status:
-            "playing"
-
-        });
+        await supa
+          .from("match_queue")
+          .select("*")
+          .eq(
+            "status",
+            "waiting"
+          )
+          .neq(
+            "player_id",
+            state.playerId
+          )
+          .limit(1)
+          .maybeSingle();
 
 
-      if (error) {
+      if (searchError) {
 
-        msg(error.message);
+        console.error(
+          "[DRAW AIR HOCKEY] queue search error",
+          searchError
+        );
+
+      }
+
+
+      if (waitingPlayer) {
+
+        /*
+          このプレイヤーをHOSTとして
+          新しい部屋を作る。
+        */
+
+        let roomCreated =
+          false;
+
+
+        let roomCode =
+          null;
+
+
+        let roomError =
+          null;
+
+
+        for (
+          let attempt = 0;
+          attempt < 10;
+          attempt++
+        ) {
+
+          const code =
+            randomRoomCode();
+
+
+          const {
+            error
+          } =
+            await supa
+              .from("rooms")
+              .insert({
+
+                code,
+
+                host_id:
+                  waitingPlayer.player_id,
+
+                guest_id:
+                  state.playerId,
+
+                status:
+                  "playing"
+
+              });
+
+
+          if (!error) {
+
+            roomCreated =
+              true;
+
+            roomCode =
+              code;
+
+            break;
+
+          }
+
+
+          roomError =
+            error;
+
+
+          const text =
+            String(
+              error.message ||
+              ""
+            ).toLowerCase();
+
+
+          const duplicate =
+            error.code === "23505" ||
+            text.includes(
+              "duplicate"
+            );
+
+
+          if (!duplicate) {
+            break;
+          }
+
+        }
+
+
+        if (!roomCreated) {
+
+          msg(
+            "マッチング用ルーム作成失敗: " +
+            (
+              roomError?.message ||
+              "原因不明"
+            )
+          );
+
+
+          return;
+
+        }
+
+
+        await supa
+          .from("match_queue")
+          .update({
+
+            status:
+              "matched",
+
+            room_code:
+              roomCode
+
+          })
+          .eq(
+            "id",
+            waitingPlayer.id
+          );
+
+
+        state.room =
+          roomCode;
+
+
+        state.role =
+          "guest";
+
+
+        state.host =
+          false;
+
+
+        await openChannel(
+          roomCode
+        );
+
+
+        status(
+          "マッチング成立"
+        );
+
+
+        send(
+          "signal",
+          {
+            role:
+              "guest"
+          }
+        );
+
 
         return;
 
       }
 
 
-      await supa
-        .from("match_queue")
-        .update({
+      /*
+        相手がいないので待機列へ。
+      */
 
-          status:
-            "matched",
+      const {
+        error:
+          queueError
+      } =
+        await supa
+          .from("match_queue")
+          .insert({
 
-          room_code:
-            room
+            id:
+              ticket,
 
-        })
-        .eq(
-          "id",
-          data.id
+            player_id:
+              state.playerId,
+
+            status:
+              "waiting"
+
+          });
+
+
+      if (queueError) {
+
+        msg(
+          "マッチング待機に失敗しました: " +
+          queueError.message
         );
 
 
-      state.room =
-        room;
+        return;
 
-      state.role =
-        "guest";
-
-      state.host =
-        false;
+      }
 
 
-      await openChannel(room);
+      const poll =
+        setInterval(
+          async () => {
+
+            try {
+
+              const {
+                data:
+                  r
+              } =
+                await supa
+                  .from("match_queue")
+                  .select("*")
+                  .eq(
+                    "id",
+                    ticket
+                  )
+                  .maybeSingle();
 
 
-      send(
-        "signal",
-        {
-          role: "guest"
-        }
+              if (
+                r?.status === "matched" &&
+                r.room_code
+              ) {
+
+                clearInterval(
+                  poll
+                );
+
+
+                state.room =
+                  r.room_code;
+
+
+                /*
+                  マッチングを成立させた側は
+                  HOSTになる。
+                */
+
+                state.role =
+                  "host";
+
+
+                state.host =
+                  true;
+
+
+                await openChannel(
+                  r.room_code
+                );
+
+
+                status(
+                  "マッチング成立"
+                );
+
+
+                send(
+                  "signal",
+                  {
+                    role:
+                      "host"
+                  }
+                );
+
+              }
+
+            } catch (error) {
+
+              console.error(
+                "[DRAW AIR HOCKEY] matchmaking poll error",
+                error
+              );
+
+            }
+
+          },
+          1200
+        );
+
+    } catch (error) {
+
+      console.error(
+        "[DRAW AIR HOCKEY] quickMatch error",
+        error
       );
 
 
-      return;
+      msg(
+        "マッチング中にエラーが発生しました: " +
+        (
+          error?.message ||
+          error
+        )
+      );
 
     }
-
-
-    await supa
-      .from("match_queue")
-      .insert({
-
-        id:
-          ticket,
-
-        player_id:
-          state.playerId,
-
-        status:
-          "waiting"
-
-      });
-
-
-    const poll =
-      setInterval(
-        async () => {
-
-          const {
-            data: r
-          } =
-          await supa
-            .from("match_queue")
-            .select("*")
-            .eq("id", ticket)
-            .maybeSingle();
-
-
-          if (
-            r?.status === "matched" &&
-            r.room_code
-          ) {
-
-            clearInterval(poll);
-
-
-            state.room =
-              r.room_code;
-
-
-            state.role =
-              "host";
-
-
-            state.host =
-              true;
-
-
-            await openChannel(
-              r.room_code
-            );
-
-
-            status(
-              "マッチング成立"
-            );
-
-
-            send(
-              "signal",
-              {
-                role: "host"
-              }
-            );
-
-          }
-
-        },
-        1200
-      );
 
   }
 
@@ -1534,6 +1999,15 @@ async function createRoom(){
         $("gameCanvas");
 
 
+      if (!this.canvas) {
+
+        throw new Error(
+          "gameCanvas がHTMLにありません。"
+        );
+
+      }
+
+
       this.ctx =
         this.canvas.getContext(
           "2d"
@@ -1545,7 +2019,8 @@ async function createRoom(){
 
       window.addEventListener(
         "resize",
-        () => this.resize()
+        () =>
+          this.resize()
       );
 
 
@@ -1564,9 +2039,8 @@ async function createRoom(){
 
 
       /*
-        host = 左
-
-        guest = 右
+        HOST = 左
+        GUEST = 右
       */
 
       this.localSide =
@@ -1589,17 +2063,23 @@ async function createRoom(){
 
 
       requestAnimationFrame(
-        t => this.loop(t)
+        t =>
+          this.loop(t)
       );
 
     }
 
 
 
+    // =======================================================
+    // RESIZE
+    // =======================================================
+
     resize() {
 
       this.canvas.width =
         this.W;
+
 
       this.canvas.height =
         this.H;
@@ -1616,11 +2096,14 @@ async function createRoom(){
 
       const options = {
 
-        isStatic: true,
+        isStatic:
+          true,
 
-        restitution: 1,
+        restitution:
+          1,
 
-        friction: 0
+        friction:
+          0
 
       };
 
@@ -1687,8 +2170,22 @@ async function createRoom(){
       options = {}
     ) {
 
+      /*
+        新形式
+
+        {
+          polygon,
+          color,
+          width
+        }
+
+        旧形式の配列にも対応。
+      */
+
       const polygon =
-        drawing?.polygon;
+        Array.isArray(drawing)
+          ? drawing
+          : drawing?.polygon;
 
 
       const verts =
@@ -1711,23 +2208,39 @@ async function createRoom(){
           : [
 
               {
-                x: -scale / 2,
-                y: -scale / 2
+                x:
+                  -scale / 2,
+
+                y:
+                  -scale / 2
+
               },
 
               {
-                x: scale / 2,
-                y: -scale / 2
+                x:
+                  scale / 2,
+
+                y:
+                  -scale / 2
+
               },
 
               {
-                x: scale / 2,
-                y: scale / 2
+                x:
+                  scale / 2,
+
+                y:
+                  scale / 2
+
               },
 
               {
-                x: -scale / 2,
-                y: scale / 2
+                x:
+                  -scale / 2,
+
+                y:
+                  scale / 2
+
               }
 
             ];
@@ -1763,14 +2276,17 @@ async function createRoom(){
 
 
       /*
-        ★物理判定用の色付き図形は
-        一切canvasへ描画しない。
+        ★重要
 
-        描画用データだけbodyへ保存。
+        物理Bodyは描画しない。
+
+        描画用データだけ保存する。
       */
 
       body.drawData =
-        drawing || null;
+        Array.isArray(drawing)
+          ? null
+          : drawing || null;
 
 
       body.drawScale =
@@ -1832,7 +2348,8 @@ async function createRoom(){
 
     makeMallets() {
 
-      this.mallets = [];
+      this.mallets =
+        [];
 
 
       for (
@@ -1842,14 +2359,8 @@ async function createRoom(){
       ) {
 
         /*
-          i = 0
-          → PLAYER 1
-          → 左
-
-
-          i = 1
-          → PLAYER 2
-          → 右
+          PLAYER 1 = 左
+          PLAYER 2 = 右
         */
 
         const drawing =
@@ -1932,11 +2443,13 @@ async function createRoom(){
       Matter.Body.setPosition(
         this.puck,
         {
+
           x:
             this.W / 2,
 
           y:
             this.H / 2
+
         }
       );
 
@@ -1944,6 +2457,7 @@ async function createRoom(){
       Matter.Body.setVelocity(
         this.puck,
         {
+
           x:
             (
               Math.random() < .5
@@ -1955,6 +2469,7 @@ async function createRoom(){
             (
               Math.random() - .5
             ) * 5
+
         }
       );
 
@@ -1986,19 +2501,25 @@ async function createRoom(){
       this.scores[side]++;
 
 
-      $("score1").textContent =
-        this.scores[0];
+      setText(
+        "score1",
+        this.scores[0]
+      );
 
 
-      $("score2").textContent =
-        this.scores[1];
+      setText(
+        "score2",
+        this.scores[1]
+      );
 
 
       if (
         this.scores[side] >= 5
       ) {
 
-        this.finish(side);
+        this.finish(
+          side
+        );
 
         return;
 
@@ -2037,10 +2558,12 @@ async function createRoom(){
         false;
 
 
-      $("resultTitle").textContent =
+      setText(
+        "resultTitle",
         side === this.localSide
           ? "WIN!"
-          : "LOSE…";
+          : "LOSE…"
+      );
 
 
       show("result");
@@ -2072,6 +2595,11 @@ async function createRoom(){
 
     applyRemote(p) {
 
+      if (!p) {
+        return;
+      }
+
+
       if (p.final) {
 
         this.running =
@@ -2081,10 +2609,12 @@ async function createRoom(){
         show("result");
 
 
-        $("resultTitle").textContent =
+        setText(
+          "resultTitle",
           p.winner === this.localSide
             ? "WIN!"
-            : "LOSE…";
+            : "LOSE…"
+        );
 
 
         return;
@@ -2123,26 +2653,14 @@ async function createRoom(){
         ) {
 
           if (
-            p.mallets[i]
+            p.mallets[i] &&
+            i !== this.localSide
           ) {
 
-            /*
-              相手から受け取った位置。
-
-              ただしローカル側では
-              自分のマレットは自分で操作する。
-            */
-
-            if (
-              i !== this.localSide
-            ) {
-
-              Matter.Body.setPosition(
-                this.mallets[i],
-                p.mallets[i]
-              );
-
-            }
+            Matter.Body.setPosition(
+              this.mallets[i],
+              p.mallets[i]
+            );
 
           }
 
@@ -2157,12 +2675,16 @@ async function createRoom(){
           p.scores;
 
 
-        $("score1").textContent =
-          p.scores[0];
+        setText(
+          "score1",
+          p.scores[0]
+        );
 
 
-        $("score2").textContent =
-          p.scores[1];
+        setText(
+          "score2",
+          p.scores[1]
+        );
 
       }
 
@@ -2170,18 +2692,31 @@ async function createRoom(){
 
 
 
+    // =======================================================
+    // REMOTE RESET
+    // =======================================================
+
     remoteReset(p) {
+
+      if (!p) {
+        return;
+      }
+
 
       this.scores =
         p.scores;
 
 
-      $("score1").textContent =
-        p.scores[0];
+      setText(
+        "score1",
+        p.scores[0]
+      );
 
 
-      $("score2").textContent =
-        p.scores[1];
+      setText(
+        "score2",
+        p.scores[1]
+      );
 
 
       this.resetPuck(
@@ -2240,9 +2775,8 @@ async function createRoom(){
 
 
         /*
-          左プレイヤーは左半分だけ。
-
-          右プレイヤーは右半分だけ。
+          自分の陣地から
+          マレットが出ないようにする。
         */
 
         const minX =
@@ -2280,11 +2814,13 @@ async function createRoom(){
         Matter.Body.setPosition(
           this.mallets[side],
           {
+
             x:
               clampedX,
 
             y:
               clampedY
+
           }
         );
 
@@ -2294,15 +2830,20 @@ async function createRoom(){
       canvas.onpointerdown =
         e => {
 
-          dragging = true;
+          dragging =
+            true;
 
 
           move(e);
 
 
-          canvas.setPointerCapture(
-            e.pointerId
-          );
+          try {
+
+            canvas.setPointerCapture(
+              e.pointerId
+            );
+
+          } catch (_) {}
 
         };
 
@@ -2355,10 +2896,7 @@ async function createRoom(){
 
 
       /*
-        物理演算はホストだけ。
-
-        guestはホストから
-        状態を受信する。
+        物理演算はHOSTだけ。
       */
 
       if (this.host) {
@@ -2384,7 +2922,9 @@ async function createRoom(){
           x < -25
         ) {
 
-          this.score(1);
+          this.score(
+            1
+          );
 
           return;
 
@@ -2395,7 +2935,9 @@ async function createRoom(){
           x > this.W + 25
         ) {
 
-          this.score(0);
+          this.score(
+            0
+          );
 
           return;
 
@@ -2429,8 +2971,7 @@ async function createRoom(){
 
 
         /*
-          30msごとに
-          ゲーム状態を送信。
+          約30msごとに送信。
         */
 
         if (
@@ -2479,7 +3020,8 @@ async function createRoom(){
 
 
       requestAnimationFrame(
-        tt => this.loop(tt)
+        tt =>
+          this.loop(tt)
       );
 
     }
@@ -2504,9 +3046,9 @@ async function createRoom(){
       );
 
 
-      /*
-        FIELD
-      */
+      // -----------------------------------------------------
+      // FIELD
+      // -----------------------------------------------------
 
       c.fillStyle =
         "#0b7775";
@@ -2520,9 +3062,9 @@ async function createRoom(){
       );
 
 
-      /*
-        FIELD LINE
-      */
+      // -----------------------------------------------------
+      // FIELD BORDER
+      // -----------------------------------------------------
 
       c.strokeStyle =
         "#bff9ef";
@@ -2540,30 +3082,34 @@ async function createRoom(){
       );
 
 
-      /*
-        CENTER LINE
-      */
+      // -----------------------------------------------------
+      // CENTER LINE
+      // -----------------------------------------------------
 
       c.beginPath();
+
 
       c.moveTo(
         this.W / 2,
         10
       );
 
+
       c.lineTo(
         this.W / 2,
         this.H - 10
       );
 
+
       c.stroke();
 
 
-      /*
-        CENTER CIRCLE
-      */
+      // -----------------------------------------------------
+      // CENTER CIRCLE
+      // -----------------------------------------------------
 
       c.beginPath();
+
 
       c.arc(
         this.W / 2,
@@ -2573,12 +3119,13 @@ async function createRoom(){
         Math.PI * 2
       );
 
+
       c.stroke();
 
 
-      /*
-        GOAL AREA
-      */
+      // -----------------------------------------------------
+      // GOAL AREA
+      // -----------------------------------------------------
 
       c.fillStyle =
         "#092e38";
@@ -2600,18 +3147,12 @@ async function createRoom(){
       );
 
 
-      /*
-        ★重要
-
-        物理Bodyそのものは描画しない。
-
-        描画データを使って
-        「プレイヤーが実際に描いた線」
-        だけを表示する。
-      */
+      // -----------------------------------------------------
+      // PLAYER DRAWINGS
+      // -----------------------------------------------------
 
       this.mallets.forEach(
-        (body, i) => {
+        body => {
 
           this.drawPlayerShape(
             body
@@ -2639,18 +3180,16 @@ async function createRoom(){
         body.drawData;
 
 
+      const c =
+        this.ctx;
+
+
+      /*
+        描画データがない場合だけ
+        円を表示。
+      */
+
       if (!drawing) {
-
-        /*
-          絵がない場合だけ、
-          最低限の円を表示。
-
-          通常はここには来ない。
-        */
-
-        const c =
-          this.ctx;
-
 
         c.save();
 
@@ -2662,6 +3201,7 @@ async function createRoom(){
 
 
         c.beginPath();
+
 
         c.arc(
           0,
@@ -2705,10 +3245,6 @@ async function createRoom(){
       }
 
 
-      const c =
-        this.ctx;
-
-
       c.save();
 
 
@@ -2724,11 +3260,24 @@ async function createRoom(){
 
 
       /*
-        polygonは
-        -0.5～0.5程度に正規化されている。
+        ★重要
 
-        物理Bodyと同じscaleを使うため、
-        描いた形と当たり判定の形が一致する。
+        ここではclosePath()を使わない。
+
+        つまり、
+
+        プレイヤーが描いた
+
+        ───────
+
+        という線を
+
+        ───────
+
+        のまま描画する。
+
+        勝手に最後と最初を
+        接続しない。
       */
 
       c.beginPath();
@@ -2768,30 +3317,17 @@ async function createRoom(){
       }
 
 
-      c.closePath();
-
-
       /*
-        ★ここでは fill() しない。
+        ★fill()しない
 
-        これが、
-        「勝手に色付き図形が乗る」
-        問題を解消する部分。
-
-        プレイヤーが描いた線だけ。
+        物理用の色付き図形を
+        表示しない。
       */
 
       c.strokeStyle =
         drawing.color ||
         "#ffffff";
 
-
-      /*
-        描画時の太さを
-        ゲームサイズに合わせる。
-
-        ただし極端に太くならないよう制限。
-      */
 
       const lineWidth =
         Number(
@@ -2834,12 +3370,29 @@ async function createRoom(){
 
   function startGame(drawings) {
 
-    /*
-      既にゲームが動いていたら作り直さない。
-    */
+    if (
+      state.running
+    ) {
 
-    if (state.running) {
       return;
+
+    }
+
+
+    if (
+      !drawings ||
+      !drawings.host ||
+      !drawings.guest
+    ) {
+
+      console.error(
+        "[DRAW AIR HOCKEY] drawing data missing",
+        drawings
+      );
+
+
+      return;
+
     }
 
 
@@ -2857,12 +3410,14 @@ async function createRoom(){
     show("game");
 
 
-    $("roundMsg").textContent =
-      "先に5点！";
+    setText(
+      "roundMsg",
+      "先に5点！"
+    );
 
 
     /*
-      ホストだけパックを発射。
+      HOSTだけパックを発射。
     */
 
     if (state.host) {
@@ -2896,86 +3451,98 @@ async function createRoom(){
   // READY BUTTON
   // =========================================================
 
-  $("readyBtn").onclick = () => {
-
-    if (
-      !state.drawings.puck ||
-      !state.drawings.mallet
-    ) {
-
-      $("readyMsg").textContent =
-        "パックとマレットの両方を描いてください。";
+  const readyBtn =
+    $("readyBtn");
 
 
-      return;
+  if (readyBtn) {
 
-    }
+    readyBtn.onclick =
+      () => {
 
+        if (
+          !state.drawings.puck ||
+          !state.drawings.mallet
+        ) {
 
-    state.ready =
-      true;
-
-
-    $("readyBtn").disabled =
-      true;
-
-
-    $("readyMsg").textContent =
-      "相手の準備を待っています…";
-
-
-    send(
-      "ready",
-      {
-
-        drawings:
-          state.drawings
-
-      }
-    );
+          setText(
+            "readyMsg",
+            "パックとマレットの両方を描いてください。"
+          );
 
 
-    /*
-      ホストが既に相手のREADYを
-      受け取っている場合。
-    */
+          return;
 
-    if (
-      state.host &&
-      state.opponent?.ready
-    ) {
+        }
 
-      const drawings = {
 
-        host:
-          state.drawings,
+        state.ready =
+          true;
 
-        guest:
-          state.opponent.drawings
+
+        readyBtn.disabled =
+          true;
+
+
+        setText(
+          "readyMsg",
+          "相手の準備を待っています…"
+        );
+
+
+        send(
+          "ready",
+          {
+
+            drawings:
+              state.drawings
+
+          }
+        );
+
+
+        /*
+          HOST側ですでに相手READY済みの場合。
+        */
+
+        if (
+          state.host &&
+          state.opponent?.ready
+        ) {
+
+          const drawings = {
+
+            host:
+              state.drawings,
+
+            guest:
+              state.opponent.drawings
+
+          };
+
+
+          send(
+            "start",
+            {
+
+              drawings,
+
+              seed:
+                Math.random()
+
+            }
+          );
+
+
+          startGame(
+            drawings
+          );
+
+        }
 
       };
 
-
-      send(
-        "start",
-        {
-
-          drawings,
-
-          seed:
-            Math.random()
-
-        }
-      );
-
-
-      startGame(
-        drawings
-      );
-
-    }
-
-  };
+  }
 
 
 
@@ -2983,28 +3550,56 @@ async function createRoom(){
   // BUTTONS
   // =========================================================
 
-  $("quickBtn")
-    .onclick =
+  const quickBtn =
+    $("quickBtn");
+
+
+  if (quickBtn) {
+
+    quickBtn.onclick =
       quickMatch;
 
+  }
 
-  $("createBtn")
-    .onclick =
+
+  const createBtn =
+    $("createBtn");
+
+
+  if (createBtn) {
+
+    createBtn.onclick =
       createRoom;
 
+  }
 
-  $("joinBtn")
-    .onclick =
+
+  const joinBtn =
+    $("joinBtn");
+
+
+  if (joinBtn) {
+
+    joinBtn.onclick =
       joinRoom;
 
+  }
 
-  $("backBtn")
-    .onclick =
+
+  const backBtn =
+    $("backBtn");
+
+
+  if (backBtn) {
+
+    backBtn.onclick =
       () => {
 
         location.reload();
 
       };
+
+  }
 
 
 
@@ -3023,6 +3618,18 @@ async function createRoom(){
       "現在はゲーム本体のみ動作します。オンライン対戦を有効にするにはREADMEのSupabase設定をしてください。"
     );
 
+  } else {
+
+    console.log(
+      "[DRAW AIR HOCKEY] オンライン接続準備完了"
+    );
+
   }
+
+
+  console.log(
+    "★ DRAW AIR HOCKEY game.js loaded"
+  );
+
 
 })();
