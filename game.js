@@ -110,6 +110,7 @@ setupPad("puckCanvas","puck"); setupPad("malletCanvas","mallet");
     state.channel.on("broadcast",{event:"start"},({payload})=>startFromHost(payload));
     state.channel.on("broadcast",{event:"reset"},({payload})=>resetRound(payload));
     const res=await state.channel.subscribe();
+    console.log("Supabase subscribe result:", res);
     if(res!=="SUBSCRIBED") throw new Error("通信チャンネルに接続できません");
   }
   function send(event,payload){state.channel?.send({type:"broadcast",event,payload:{...payload,from:state.playerId}})}
