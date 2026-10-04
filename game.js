@@ -304,10 +304,12 @@ requestAnimationFrame(t=>this.loop(t));
     }
   }
 
-  function startGame(drawings){
-　console.log("★ AirGameを作成します");
-     state.game=new AirGame(drawings,state.host);state.running=true;show("game");
-    $("roundMsg").textContent="先に5点！";
+function startGame(drawings){
+  console.log("★ AirGameを作成します");
+  state.game=new AirGame(drawings,state.host);
+  state.running=true;
+  show("game");
+  $("roundMsg").textContent="先に5点！";
     if(state.host){Matter.Body.setVelocity(state.game.puck,{x:(Math.random()<.5?-1:1)*7,y:(Math.random()-.5)*5});}
   }
 
