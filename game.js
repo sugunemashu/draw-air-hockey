@@ -205,9 +205,12 @@ await state.channel.subscribe((status)=>{
 this.last=performance.now();
 this.running=true;
 requestAnimationFrame(t=>this.loop(t));
-    }
+}
 
-    resize(){this.canvas.width=this.W;this.canvas.height=this.H}
+resize(){
+  this.canvas.width=this.W;
+  this.canvas.height=this.H;
+}
     makeArena(){
       const o={isStatic:true,restitution:1,friction:0};
       Matter.World.add(this.world,[
