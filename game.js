@@ -30,9 +30,9 @@
     function up(e){if(!drawing)return;drawing=false;if(pts.length>3){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(const p of pts.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.stroke();state.drawings[key]=normalizePolygon(pts,c.width,c.height)}}
     ["pointerdown"].forEach(x=>c.addEventListener(x,down)); c.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
    const clearBtn = $(`[data-clear="${key}"]`);
-   console.log("CLEAR CHECK:", key, clearBtn);
-   clearBtn.onclick=()=>{ctx.clearRect(0,0,c.width,c.height);state.drawings[key]=null};
-  }
+if (clearBtn) {
+  clearBtn.onclick=()=>{ctx.clearRect(0,0,c.width,c.height);state.drawings[key]=null};
+}
   function normalizePolygon(points,w,h){
     const minx=Math.min(...points.map(p=>p.x)), maxx=Math.max(...points.map(p=>p.x));
     const miny=Math.min(...points.map(p=>p.y)), maxy=Math.max(...points.map(p=>p.y));
@@ -44,7 +44,6 @@
 console.log("puckCanvas:", $("puckCanvas"));
 console.log("malletCanvas:", $("malletCanvas"));
 console.log("clear buttons:", document.querySelectorAll("[data-clear]").length);
-console.log("key:", key, "clear:", $(`[data-clear="${key}"]`));
 
 setupPad("puckCanvas","puck"); setupPad("malletCanvas","mallet");
   // ---------- Supabase messaging ----------
