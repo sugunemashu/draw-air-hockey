@@ -334,10 +334,41 @@ console.log("★ マレットの形データ:", side, d);
       this.mallets.forEach((b,i)=>this.drawBody(b,i===this.localSide?"#ffcf4a":"#ff6b9d"));
       this.drawBody(this.puck,this.currentPuck===this.localSide?"#fff":"#d7e4ff");
     }
-    drawBody(b,fill){
-      const c=this.ctx;c.save();c.translate(b.position.x,b.position.y);c.rotate(b.angle);c.fillStyle=fill;c.strokeStyle="#18213a";c.lineWidth=3;
-      const vs=b.vertices;c.beginPath();c.moveTo(vs[0].x-b.position.x,vs[0].y-b.position.y);for(const v of vs.slice(1))c.lineTo(v.x-b.position.x,v.y-b.position.y);c.closePath();c.fill();c.stroke();c.restore();
+   drawBody(b,fill){
+  const c=this.ctx;
+
+  c.save();
+  c.translate(b.position.x,b.position.y);
+  c.rotate(b.angle);
+
+  c.fillStyle=fill;
+  c.strokeStyle="#18213a";
+  c.lineWidth=3;
+
+  const shape=b.drawShape;
+
+  if(shape && shape.length>2){
+    c.beginPath();
+
+    c.moveTo(
+      shape[0].x*70,
+      shape[0].y*70
+    );
+
+    for(const p of shape.slice(1)){
+      c.lineTo(
+        p.x*70,
+        p.y*70
+      );
     }
+
+    c.closePath();
+    c.fill();
+    c.stroke();
+  }
+
+  c.restore();
+}
   }
 
 function startGame(drawings){
