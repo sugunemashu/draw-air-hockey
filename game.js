@@ -1,965 +1,238 @@
 (() => {
+  "use strict";
 
-  const $ = id => document.getElementById(id);
+  // =========================================================
+  // Matter.js / poly-decomp
+  // =========================================================
 
-
-  /* =========================================================
-     Matter.js / poly-decomp
-  ========================================================= */
-
-  if(window.decomp){
+  if (window.decomp && window.Matter) {
     Matter.Common.setDecomp(window.decomp);
   }
 
-
-  /* =========================================================
-     Supabase
-     
-     config.js の書き方が
-     
-     const SUPABASE_URL = "...";
-     または
-     window.SUPABASE_URL = "...";
-     
-     のどちらでも動くようにする
-  ========================================================= */
-
-  const SUPABASE_URL_VALUE =
-    typeof SUPABASE_URL !== "undefined"
-      ? SUPABASE_URL
-      : (
-          typeof window !== "undefined"
-            ? window.SUPABASE_URL
-            : undefined
-        );
-
-
-  const SUPABASE_ANON_KEY_VALUE =
-    typeof SUPABASE_ANON_KEY !== "undefined"
-      ? SUPABASE_ANON_KEY
-      : (
-          typeof window !== "undefined"
-            ? window.SUPABASE_ANON_KEY
-            : undefined
-        );
-
-
-  if(
-    !SUPABASE_URL_VALUE ||
-    !SUPABASE_ANON_KEY_VALUE
-  ){
-
-    console.error(
-      "Supabase設定が読み込めていません。",
-      {
-        SUPABASE_URL:
-          SUPABASE_URL_VALUE,
-
-        SUPABASE_ANON_KEY:
-          SUPABASE_ANON_KEY_VALUE
-            ? "設定あり"
-            : "設定なし"
-      }
-    );
-
-
-    throw new Error(
-      "Supabaseの設定が見つかりません。config.jsを確認してください。"
-    );
+  if (!window.Matter) {
+    console.error("Matter.js が読み込まれていません。");
+    return;
   }
 
+  // =========================================================
+  // Supabase
+  // =========================================================
 
-  const supabaseClient =
-    window.supabase.createClient(
-      SUPABASE_URL_VALUE,
-      SUPABASE_ANON_KEY_VALUE
-    );
-
-
-  /* =========================================================
-     STATE
-  ========================================================= */
-
-  const state = {
-
-    playerId:
-      crypto.randomUUID(),
-
-    host:false,
-
-    roomCode:null,
-
-    channel:null,
-
-    ready:false,
-
-    running:false,
-
-    drawings:{
-      puck:null,
-      mallet:null
-    },
-
-    opponent:null,
-
-    game:null
-
-  };
-
-
-  /* =========================================================
-     UI
-  ========================================================= */
-
-  function msg(text){
-
-    console.log(text);
-
-    const el=$("message");
-
-    if(el){
-      el.textContent=text;
-    }
+  if (!window.supabase) {
+    console.error("Supabase JS が読み込まれていません。");
+    return;
   }
 
+  const SUPABASE_URL_VALUE = window.SUPABASE_URL;
+  const SUPABASE_ANON_KEY_VALUE = window.SUPABASE_ANON_KEY;
 
-  function statusText(text){
+  if (!SUPABASE_URL_VALUE || !SUPABASE_ANON_KEY_VALUE) {
+    console.error("Supabase設定がありません。config.jsを確認してください。", {
+      SUPABASE_URL: SUPABASE_URL_VALUE,
+      SUPABASE_ANON_KEY:
+        SUPABASE_ANON_KEY_VALUE ? "設定あり" : "設定なし"
+    });
 
-    console.log(text);
+    alert(
+      "Supabaseの設定が読み込めません。\n" +
+      "config.js の内容を確認してください。"
+    );
 
-    const el=$("status");
-
-    if(el){
-      el.textContent=text;
-    }
+    return;
   }
 
+  const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL_VALUE,
+    SUPABASE_ANON_KEY_VALUE
+  );
 
-  function show(id){
+  // =========================================================
+  // Utility
+  // =========================================================
 
-    document
-      .querySelectorAll(".screen")
-      .forEach(el=>{
-        el.style.display="none";
-      });
+  const $ = (id) => document.getElementById(id);
 
-
-    const target=$(id);
-
-    if(target){
-      target.style.display="block";
+  function statusText(text) {
+    const el = $("statusText");
+    if (el) {
+      el.textContent = text;
     }
+    console.log("[STATUS]", text);
   }
 
-
-  /* =========================================================
-     DRAWING
-  ========================================================= */
-
-  function normalizePolygon(points){
-
-    if(
-      !points ||
-      points.length<3
-    ){
-      return null;
-    }
-
-
-    let cx=0;
-    let cy=0;
-
-
-    for(const p of points){
-
-      cx+=p.x;
-      cy+=p.y;
-
-    }
-
-
-    cx/=points.length;
-    cy/=points.length;
-
-
-    let max=0;
-
-
-    const result=
-      points.map(p=>{
-
-        const x=
-          p.x-cx;
-
-        const y=
-          p.y-cy;
-
-
-        max=
-          Math.max(
-            max,
-            Math.sqrt(
-              x*x+y*y
-            )
-          );
-
-
-        return {
-          x,
-          y
-        };
-
-      });
-
-
-    if(max===0){
-      return null;
-    }
-
-
-    return result.map(p=>({
-
-      x:p.x/max,
-
-      y:p.y/max
-
-    }));
-  }
-
-
-  function setupPad(
-    id,
-    type
-  ){
-
-    const canvas=$(id);
-
-
-    if(!canvas){
-      console.warn(
-        "Canvasがありません:",
-        id
-      );
-
-      return;
-    }
-
-
-    const ctx=
-      canvas.getContext("2d");
-
-
-    let drawing=false;
-
-    let points=[];
-
-
-    function resize(){
-
-      const rect=
-        canvas.getBoundingClientRect();
-
-
-      const dpr=
-        window.devicePixelRatio||1;
-
-
-      canvas.width=
-        rect.width*dpr;
-
-
-      canvas.height=
-        rect.height*dpr;
-
-
-      ctx.setTransform(
-        dpr,
-        0,
-        0,
-        dpr,
-        0,
-        0
-      );
-
-
-      redraw();
-    }
-
-
-    function getPoint(e){
-
-      const rect=
-        canvas.getBoundingClientRect();
-
-
-      return {
-
-        x:
-          e.clientX-
-          rect.left,
-
-        y:
-          e.clientY-
-          rect.top
-
-      };
-    }
-
-
-    function redraw(){
-
-      const rect=
-        canvas.getBoundingClientRect();
-
-
-      ctx.clearRect(
-        0,
-        0,
-        rect.width,
-        rect.height
-      );
-
-
-      ctx.fillStyle="#fff";
-
-
-      ctx.fillRect(
-        0,
-        0,
-        rect.width,
-        rect.height
-      );
-
-
-      if(points.length){
-
-        ctx.strokeStyle="#222";
-
-        ctx.lineWidth=4;
-
-        ctx.lineCap="round";
-
-        ctx.lineJoin="round";
-
-
-        ctx.beginPath();
-
-
-        ctx.moveTo(
-          points[0].x,
-          points[0].y
-        );
-
-
-        for(
-          let i=1;
-          i<points.length;
-          i++
-        ){
-
-          ctx.lineTo(
-            points[i].x,
-            points[i].y
-          );
-
-        }
-
-
-        ctx.stroke();
-      }
-    }
-
-
-    function start(e){
-
-      e.preventDefault();
-
-
-      drawing=true;
-
-
-      points=[];
-
-
-      points.push(
-        getPoint(e)
-      );
-
-
-      redraw();
-
-
-      try{
-
-        canvas.setPointerCapture(
-          e.pointerId
-        );
-
-      }catch(err){}
-    }
-
-
-    function move(e){
-
-      if(!drawing){
-        return;
-      }
-
-
-      e.preventDefault();
-
-
-      const p=
-        getPoint(e);
-
-
-      const last=
-        points[
-          points.length-1
-        ];
-
-
-      const dx=
-        p.x-last.x;
-
-
-      const dy=
-        p.y-last.y;
-
-
-      if(
-        Math.sqrt(
-          dx*dx+dy*dy
-        )<2
-      ){
-
-        return;
-      }
-
-
-      points.push(p);
-
-
-      redraw();
-    }
-
-
-    function end(){
-
-      if(!drawing){
-        return;
-      }
-
-
-      drawing=false;
-
-
-      if(points.length>=3){
-
-        const normalized=
-          normalizePolygon(
-            points
-          );
-
-
-        if(normalized){
-
-          state.drawings[type]=
-            normalized;
-
-
-          console.log(
-            "★ 描画完成:",
-            type
-          );
-        }
-      }
-
-
-      redraw();
-    }
-
-
-    canvas.addEventListener(
-      "pointerdown",
-      start
-    );
-
-
-    canvas.addEventListener(
-      "pointermove",
-      move
-    );
-
-
-    canvas.addEventListener(
-      "pointerup",
-      end
-    );
-
-
-    canvas.addEventListener(
-      "pointercancel",
-      end
-    );
-
-
-    window.addEventListener(
-      "resize",
-      resize
-    );
-
-
-    resize();
-  }
-
-
-  /* =========================================================
-     SUPABASE SEND
-  ========================================================= */
-
-  function send(
-    type,
-    data={}
-  ){
-
-    if(!state.channel){
-
-      console.warn(
-        "チャンネルがありません"
-      );
-
-      return;
-    }
-
-
-    state.channel.send({
-
-      type:"broadcast",
-
-      event:type,
-
-      payload:{
-
-        from:
-          state.playerId,
-
-        ...data
-
-      }
-
+  function show(id) {
+    const screens = [
+      "menu",
+      "room",
+      "draw",
+      "game",
+      "result"
+    ];
+
+    screens.forEach((name) => {
+      const el = $(name);
+      if (!el) return;
+
+      el.style.display = name === id ? "" : "none";
     });
   }
 
-
-  /* =========================================================
-     SUPABASE RECEIVE
-  ========================================================= */
-
-  function onSignal(payload){
-
-    const p=
-      payload.payload||payload;
-
-
-    if(!p){
-      return;
-    }
-
-
-    if(
-      p.from===
-      state.playerId
-    ){
-
-      return;
-    }
-
-
-    switch(payload.event){
-
-      case "ready":
-
-        onReady(p);
-
-        break;
-
-
-      case "start":
-
-        startFromHost(p);
-
-        break;
-
-
-      case "state":
-
-        onGameState(p);
-
-        break;
-
-
-      case "input":
-
-        onInput(p);
-
-        break;
-
-
-      case "reset":
-
-        resetRound(p);
-
-        break;
-
-
-      case "finish":
-
-        onFinish(p);
-
-        break;
-
+  function setText(id, value) {
+    const el = $(id);
+    if (el) {
+      el.textContent = value;
     }
   }
 
+  // =========================================================
+  // State
+  // =========================================================
 
-  /* =========================================================
-     READY
-  ========================================================= */
+  const state = {
+    playerId:
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
 
-  function onReady(p){
+    host: false,
 
-    if(
-      p.from===
-      state.playerId
-    ){
+    roomCode: null,
 
-      return;
+    channel: null,
+
+    ready: false,
+
+    running: false,
+
+    drawings: {
+      puck: null,
+      mallet: null
+    },
+
+    opponent: null,
+
+    game: null
+  };
+
+  // =========================================================
+  // Room code
+  // =========================================================
+
+  function uniqueCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+    let result = "";
+
+    for (let i = 0; i < 6; i++) {
+      result += chars[
+        Math.floor(Math.random() * chars.length)
+      ];
     }
-
-
-    state.opponent={
-
-      ...(state.opponent||{}),
-
-      ...p,
-
-      ready:true
-
-    };
-
-
-    if(
-      state.host &&
-      state.ready
-    ){
-
-      const firstPuck=
-        Math.random()<0.5
-          ?0
-          :1;
-
-
-      const drawings={
-
-        host:
-          state.drawings,
-
-        guest:
-          p.drawings
-
-      };
-
-
-      send(
-        "start",
-        {
-
-          drawings,
-
-          currentPuck:
-            firstPuck
-
-        }
-      );
-
-
-      startGame(
-        drawings,
-        firstPuck
-      );
-    }
-  }
-
-
-  /* =========================================================
-     START FROM HOST
-  ========================================================= */
-
-  function startFromHost(p){
-
-    console.log(
-      "★ ホストからゲーム開始",
-      p
-    );
-
-
-    state.opponent={
-
-      ...(state.opponent||{}),
-
-      drawings:
-        p.drawings.host
-
-    };
-
-
-    startGame(
-      p.drawings,
-      p.currentPuck
-    );
-  }
-
-
-  /* =========================================================
-     REMOTE GAME STATE
-  ========================================================= */
-
-  function onGameState(p){
-
-    if(
-      state.host ||
-      !state.game
-    ){
-
-      return;
-    }
-
-
-    state.game.applyRemote(p);
-  }
-
-
-  /* =========================================================
-     GUEST INPUT
-  ========================================================= */
-
-  function onInput(p){
-
-    if(
-      !state.host ||
-      !state.running ||
-      p.from===
-      state.playerId
-    ){
-
-      return;
-    }
-
-
-    if(
-      state.game &&
-      p.position
-    ){
-
-      state.game.applyGuestInput(p);
-    }
-  }
-
-
-  /* =========================================================
-     RESET
-  ========================================================= */
-
-  function resetRound(p){
-
-    if(!state.game){
-      return;
-    }
-
-
-    if(
-      !p.scores ||
-      !Array.isArray(p.scores)
-    ){
-
-      return;
-    }
-
-
-    state.game.remoteReset(p);
-  }
-
-
-  /* =========================================================
-     FINISH
-  ========================================================= */
-
-  function onFinish(p){
-
-    if(!state.game){
-      return;
-    }
-
-
-    state.game.running=false;
-
-    state.running=false;
-
-
-    $("roundMsg").textContent=
-      p.winner===0
-        ?"プレイヤー1の勝利！"
-        :"プレイヤー2の勝利！";
-  }
-
-
-  /* =========================================================
-     ROOM
-  ========================================================= */
-
-  function uniqueCode(){
-
-    const chars=
-      "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-
-    let result="";
-
-
-    for(
-      let i=0;
-      i<6;
-      i++
-    ){
-
-      result+=
-        chars[
-          Math.floor(
-            Math.random()*
-            chars.length
-          )
-        ];
-    }
-
 
     return result;
   }
 
+  // =========================================================
+  // Supabase messaging
+  // =========================================================
 
-  async function createRoom(){
-
-    const code=
-      uniqueCode();
-
-
-    state.host=true;
-
-    state.roomCode=code;
-
-
-    await joinChannel(
-      code
-    );
-
-
-    $("roomCode").textContent=
-      code;
-
-
-    show("room");
-
-
-    statusText(
-      "ルームを作成しました"
-    );
-  }
-
-
-  async function joinRoom(code){
-
-    if(!code){
+  function send(type, data = {}) {
+    if (!state.channel) {
+      console.warn("Supabase channel がありません。");
       return;
     }
 
-
-    state.host=false;
-
-
-    state.roomCode=
-      code.trim().toUpperCase();
-
-
-    await joinChannel(
-      state.roomCode
-    );
-
-
-    show("room");
-
-
-    statusText(
-      "ルームに参加しました"
-    );
-  }
-
-
-  async function quickMatch(){
-
-    const code=
-      prompt(
-        "ルームコードを入力してください"
-      );
-
-
-    if(!code){
-      return;
-    }
-
-
-    await joinRoom(code);
-  }
-
-
-  /* =========================================================
-     SUPABASE CHANNEL
-  ========================================================= */
-
-  async function joinChannel(code){
-
-    if(state.channel){
-
-      try{
-
-        await supabaseClient
-          .removeChannel(
-            state.channel
-          );
-
-      }catch(err){}
-
-
-      state.channel=null;
-    }
-
-
-    const channel=
-      supabaseClient.channel(
-        "air-hockey-"+code,
-        {
-          config:{
-            broadcast:{
-              self:false
-            }
-          }
+    try {
+      state.channel.send({
+        type: "broadcast",
+        event: type,
+        payload: {
+          from: state.playerId,
+          ...data
         }
-      );
+      });
+    } catch (err) {
+      console.error("送信エラー:", err);
+    }
+  }
 
+  function onSignal(payload) {
+    if (!payload) return;
 
-    state.channel=channel;
+    const p = payload.payload || payload;
 
+    if (!p) return;
 
-    const events=[
+    if (p.from === state.playerId) {
+      return;
+    }
+
+    const eventName = payload.event;
+
+    switch (eventName) {
+      case "ready":
+        onReady(p);
+        break;
+
+      case "start":
+        startFromHost(p);
+        break;
+
+      case "state":
+        onGameState(p);
+        break;
+
+      case "input":
+        onInput(p);
+        break;
+
+      case "reset":
+        resetRound(p);
+        break;
+
+      case "finish":
+        onFinish(p);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  // =========================================================
+  // Supabase room connection
+  // =========================================================
+
+  async function joinChannel(code) {
+    if (!code) {
+      throw new Error("ルームコードがありません。");
+    }
+
+    if (state.channel) {
+      try {
+        await supabaseClient.removeChannel(state.channel);
+      } catch (err) {
+        console.warn("既存チャンネル削除エラー:", err);
+      }
+
+      state.channel = null;
+    }
+
+    const channelName = "air-hockey-" + code;
+
+    console.log("Supabase channel:", channelName);
+
+    const channel = supabaseClient.channel(channelName, {
+      config: {
+        broadcast: {
+          self: false
+        }
+      }
+    });
+
+    state.channel = channel;
+
+    const events = [
       "ready",
       "start",
       "state",
@@ -968,132 +241,682 @@
       "finish"
     ];
 
-
-    for(
-      const event of events
-    ){
-
+    events.forEach((eventName) => {
       channel.on(
         "broadcast",
-        {event},
-        payload=>{
+        { event: eventName },
+        (payload) => {
+          console.log("[RECV]", eventName, payload);
           onSignal(payload);
         }
       );
+    });
+
+    return new Promise((resolve, reject) => {
+      let finished = false;
+
+      const timeout = setTimeout(() => {
+        if (finished) return;
+
+        finished = true;
+
+        reject(
+          new Error(
+            "Supabaseへの接続がタイムアウトしました。"
+          )
+        );
+      }, 10000);
+
+      channel.subscribe((status) => {
+        console.log("Supabase:", status);
+
+        if (status === "SUBSCRIBED") {
+          if (finished) return;
+
+          finished = true;
+          clearTimeout(timeout);
+
+          statusText("接続済み");
+
+          resolve();
+        }
+
+        if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT" ||
+          status === "CLOSED"
+        ) {
+          if (finished) return;
+
+          finished = true;
+          clearTimeout(timeout);
+
+          reject(
+            new Error(
+              "Supabase接続エラー: " + status
+            )
+          );
+        }
+      });
+    });
+  }
+
+  // =========================================================
+  // Create room
+  // =========================================================
+
+  async function createRoom() {
+    try {
+      statusText("ルームを作成しています...");
+
+      const code = uniqueCode();
+
+      state.host = true;
+      state.roomCode = code;
+      state.ready = false;
+      state.opponent = null;
+
+      await joinChannel(code);
+
+      setText("roomCode", code);
+
+      show("room");
+
+      statusText(
+        "ルームを作成しました。相手の参加を待っています。"
+      );
+
+      console.log("ルーム作成成功:", code);
+    } catch (err) {
+      console.error("ルーム作成失敗:", err);
+
+      state.host = false;
+      state.roomCode = null;
+      state.channel = null;
+
+      statusText("ルーム作成に失敗しました。");
+
+      alert(
+        "ルームを作成できませんでした。\n\n" +
+        err.message +
+        "\n\n" +
+        "Supabaseの設定とRealtimeを確認してください。"
+      );
+    }
+  }
+
+  // =========================================================
+  // Join room
+  // =========================================================
+
+  async function joinRoom(code) {
+    code = String(code || "")
+      .trim()
+      .toUpperCase();
+
+    if (!code) {
+      alert("ルームコードを入力してください。");
+      return;
     }
 
+    try {
+      statusText("ルームに接続しています...");
 
-    await channel.subscribe(
-      s=>{
+      state.host = false;
+      state.roomCode = code;
+      state.ready = false;
+      state.opponent = null;
 
-        console.log(
-          "Supabase:",
-          s
+      await joinChannel(code);
+
+      setText("roomCode", code);
+
+      show("room");
+
+      statusText(
+        "ルームに参加しました。"
+      );
+
+      console.log("ルーム参加成功:", code);
+    } catch (err) {
+      console.error("ルーム参加失敗:", err);
+
+      state.roomCode = null;
+      state.channel = null;
+
+      statusText("ルームに参加できませんでした。");
+
+      alert(
+        "ルームに参加できませんでした。\n\n" +
+        err.message
+      );
+    }
+  }
+
+  // =========================================================
+  // Quick match
+  // =========================================================
+
+  async function quickMatch() {
+    const code = window.prompt(
+      "ルームコードを入力してください"
+    );
+
+    if (!code) return;
+
+    await joinRoom(code);
+  }
+
+  // =========================================================
+  // Ready
+  // =========================================================
+
+  function allDrawingsReady() {
+    return (
+      !!state.drawings.puck &&
+      !!state.drawings.mallet
+    );
+  }
+
+  function sendReady() {
+    if (!state.channel) {
+      alert("まだルームに接続していません。");
+      return;
+    }
+
+    if (!allDrawingsReady()) {
+      alert(
+        "パックとマレットの絵を両方描いてください。"
+      );
+      return;
+    }
+
+    state.ready = true;
+
+    send("ready", {
+      drawings: state.drawings
+    });
+
+    statusText(
+      "準備完了。相手を待っています。"
+    );
+
+    if (state.host && state.opponent?.ready) {
+      startMatch();
+    }
+  }
+
+  function onReady(p) {
+    if (p.from === state.playerId) return;
+
+    state.opponent = {
+      ...(state.opponent || {}),
+      ...p,
+      ready: true
+    };
+
+    statusText(
+      "相手が準備完了しました。"
+    );
+
+    if (
+      state.host &&
+      state.ready &&
+      state.opponent.ready
+    ) {
+      startMatch();
+    }
+  }
+
+  // =========================================================
+  // Start match
+  // =========================================================
+
+  function startMatch() {
+    if (!state.host) return;
+
+    if (!state.ready) return;
+
+    if (!state.opponent?.ready) return;
+
+    const firstPuck =
+      Math.random() < 0.5 ? 0 : 1;
+
+    const drawings = {
+      host: state.drawings,
+      guest: state.opponent.drawings
+    };
+
+    send("start", {
+      drawings,
+      currentPuck: firstPuck
+    });
+
+    startGame(drawings, firstPuck);
+  }
+
+  function startFromHost(p) {
+    state.opponent = {
+      ...(state.opponent || {}),
+      drawings: p.drawings.host
+    };
+
+    startGame(
+      p.drawings,
+      p.currentPuck
+    );
+  }
+
+  function startGame(drawings, firstPuck) {
+    if (!drawings) {
+      console.error("drawings がありません。");
+      return;
+    }
+
+    state.running = true;
+
+    if (state.game) {
+      try {
+        state.game.destroy();
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+
+    state.game = new AirGame(
+      drawings,
+      state.host,
+      firstPuck
+    );
+
+    show("game");
+
+    statusText("ゲーム開始！");
+  }
+
+  // =========================================================
+  // Network game state
+  // =========================================================
+
+  function onGameState(p) {
+    if (state.host) return;
+
+    if (!state.game) return;
+
+    state.game.applyNetworkState(p);
+  }
+
+  function onInput(p) {
+    if (!state.host) return;
+
+    if (!state.running) return;
+
+    if (!state.game) return;
+
+    state.game.applyGuestInput(p);
+  }
+
+  // =========================================================
+  // Reset round
+  // =========================================================
+
+  function resetRound(p) {
+    if (!state.game) return;
+
+    state.game.remoteReset(p);
+  }
+
+  // =========================================================
+  // Finish
+  // =========================================================
+
+  function onFinish(p) {
+    if (!state.game) return;
+
+    state.game.remoteFinish(p);
+  }
+
+  // =========================================================
+  // Drawing pad
+  // =========================================================
+
+  function setupPad(canvasId, type) {
+    const canvas = $(canvasId);
+
+    if (!canvas) {
+      console.warn(
+        "Canvasがありません:",
+        canvasId
+      );
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+
+    let drawing = false;
+    let points = [];
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+
+      const dpr =
+        window.devicePixelRatio || 1;
+
+      const width =
+        Math.max(1, Math.floor(rect.width * dpr));
+
+      const height =
+        Math.max(1, Math.floor(rect.height * dpr));
+
+      if (
+        canvas.width !== width ||
+        canvas.height !== height
+      ) {
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.setTransform(
+          dpr,
+          0,
+          0,
+          dpr,
+          0,
+          0
         );
+      }
+    }
 
+    resizeCanvas();
 
-        if(
-          s==="SUBSCRIBED"
-        ){
+    window.addEventListener(
+      "resize",
+      resizeCanvas
+    );
 
-          statusText(
-            "接続済み"
-          );
+    function getPoint(e) {
+      const rect =
+        canvas.getBoundingClientRect();
+
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function drawPreview() {
+      resizeCanvas();
+
+      const rect =
+        canvas.getBoundingClientRect();
+
+      ctx.clearRect(
+        0,
+        0,
+        rect.width,
+        rect.height
+      );
+
+      if (points.length < 2) return;
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        points[0].x,
+        points[0].y
+      );
+
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(
+          points[i].x,
+          points[i].y
+        );
+      }
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      ctx.stroke();
+    }
+
+    function start(e) {
+      e.preventDefault();
+
+      drawing = true;
+      points = [getPoint(e)];
+
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch (err) {}
+    }
+
+    function move(e) {
+      if (!drawing) return;
+
+      e.preventDefault();
+
+      points.push(getPoint(e));
+
+      drawPreview();
+    }
+
+    function end(e) {
+      if (!drawing) return;
+
+      e.preventDefault();
+
+      drawing = false;
+
+      try {
+        canvas.releasePointerCapture(
+          e.pointerId
+        );
+      } catch (err) {}
+
+      const polygon =
+        normalizePolygon(points);
+
+      if (polygon.length >= 3) {
+        state.drawings[type] = polygon;
+      }
+
+      drawPreview();
+
+      updateReadyUI();
+    }
+
+    canvas.addEventListener(
+      "pointerdown",
+      start
+    );
+
+    canvas.addEventListener(
+      "pointermove",
+      move
+    );
+
+    canvas.addEventListener(
+      "pointerup",
+      end
+    );
+
+    canvas.addEventListener(
+      "pointercancel",
+      end
+    );
+
+    canvas.addEventListener(
+      "pointerleave",
+      (e) => {
+        if (drawing && e.buttons === 0) {
+          end(e);
         }
       }
     );
   }
 
+  function normalizePolygon(points) {
+    if (!points || points.length < 3) {
+      return null;
+    }
 
-  /* =========================================================
-     AIR GAME
-  ========================================================= */
+    // 点を間引く
+    const simplified = [];
 
-  class AirGame{
+    const minDistance = 4;
 
+    for (const p of points) {
+      const last =
+        simplified[simplified.length - 1];
+
+      if (!last) {
+        simplified.push(p);
+        continue;
+      }
+
+      const dx = p.x - last.x;
+      const dy = p.y - last.y;
+
+      if (
+        Math.sqrt(dx * dx + dy * dy) >=
+        minDistance
+      ) {
+        simplified.push(p);
+      }
+    }
+
+    if (simplified.length < 3) {
+      return null;
+    }
+
+    // 閉じる
+    const first = simplified[0];
+    const last =
+      simplified[simplified.length - 1];
+
+    if (
+      Math.hypot(
+        last.x - first.x,
+        last.y - first.y
+      ) > 10
+    ) {
+      simplified.push({
+        x: first.x,
+        y: first.y
+      });
+    }
+
+    // 重心
+    let cx = 0;
+    let cy = 0;
+
+    for (const p of simplified) {
+      cx += p.x;
+      cy += p.y;
+    }
+
+    cx /= simplified.length;
+    cy /= simplified.length;
+
+    let maxR = 0;
+
+    for (const p of simplified) {
+      maxR = Math.max(
+        maxR,
+        Math.hypot(
+          p.x - cx,
+          p.y - cy
+        )
+      );
+    }
+
+    if (maxR < 5) {
+      return null;
+    }
+
+    const scale = 1 / maxR;
+
+    return simplified.map((p) => ({
+      x: (p.x - cx) * scale,
+      y: (p.y - cy) * scale
+    }));
+  }
+
+  function updateReadyUI() {
+    const readyBtn = $("readyBtn");
+
+    if (!readyBtn) return;
+
+    const ok = allDrawingsReady();
+
+    readyBtn.disabled = !ok;
+  }
+
+  // =========================================================
+  // Air Game
+  // =========================================================
+
+  class AirGame {
     constructor(
       drawings,
       host,
       initialPuck
-    ){
+    ) {
+      this.drawings = drawings;
+      this.host = host;
 
-      this.drawings=
-        drawings;
+      this.running = true;
 
+      this.currentPuck =
+        initialPuck === 0 ||
+        initialPuck === 1
+          ? initialPuck
+          : 0;
 
-      this.host=
-        host;
+      this.scores = [0, 0];
 
+      // 0 = host / left
+      // 1 = guest / right
+      this.localSide = host ? 0 : 1;
 
-      this.running=
-        true;
+      this.W = 960;
+      this.H = 540;
 
+      this.canvas = $("gameCanvas");
 
-      this.currentPuck=
-        initialPuck===0 ||
-        initialPuck===1
-          ?initialPuck
-          :0;
-
-
-      this.scores=[
-        0,
-        0
-      ];
-
-
-      this.localSide=
-        host
-          ?0
-          :1;
-
-
-      this.W=960;
-
-      this.H=540;
-
-
-      this.canvas=
-        $("gameCanvas");
-
-
-      this.ctx=
-        this.canvas.getContext(
-          "2d"
+      if (!this.canvas) {
+        throw new Error(
+          "gameCanvas がありません。"
         );
+      }
 
+      this.ctx =
+        this.canvas.getContext("2d");
 
-      this.engine=
+      this.engine =
         Matter.Engine.create();
 
-
-      this.world=
+      this.world =
         this.engine.world;
 
+      this.engine.gravity.x = 0;
+      this.engine.gravity.y = 0;
 
-      this.engine.gravity.x=0;
+      this.puck = null;
 
-      this.engine.gravity.y=0;
+      this.mallets = [];
 
+      this.goalW = 300;
 
-      this.puck=null;
-
-      this.mallets=[];
-
-
-      this.goalW=300;
-
-
-      this.last=
+      this.last =
         performance.now();
 
+      this.lastSend = 0;
 
-      this.lastSend=0;
+      this.lastInputSend = 0;
 
-      this.lastInputSend=0;
-
-      this.roundPause=0;
-
+      this.roundPause = 0;
 
       this.resize();
 
@@ -1105,53 +928,38 @@
 
       this.bindInput();
 
+      this.updateScoreUI();
 
-      this.loop(
-        performance.now()
+      requestAnimationFrame(
+        (t) => this.loop(t)
       );
     }
 
+    // -------------------------------------------------------
+    // Resize
+    // -------------------------------------------------------
 
-    /* =======================================================
-       RESIZE
-    ======================================================= */
-
-    resize(){
-
-      const rect=
+    resize() {
+      const rect =
         this.canvas.getBoundingClientRect();
 
+      const dpr =
+        window.devicePixelRatio || 1;
 
-      if(
-        rect.width>0 &&
-        rect.height>0
-      ){
+      const width =
+        Math.max(
+          1,
+          Math.floor(rect.width * dpr)
+        );
 
-        this.W=
-          rect.width;
+      const height =
+        Math.max(
+          1,
+          Math.floor(rect.height * dpr)
+        );
 
-        this.H=
-          rect.height;
-
-      }else{
-
-        this.W=960;
-
-        this.H=540;
-      }
-
-
-      const dpr=
-        window.devicePixelRatio||1;
-
-
-      this.canvas.width=
-        this.W*dpr;
-
-
-      this.canvas.height=
-        this.H*dpr;
-
+      this.canvas.width = width;
+      this.canvas.height = height;
 
       this.ctx.setTransform(
         dpr,
@@ -1161,72 +969,59 @@
         0,
         0
       );
+
+      this.W =
+        rect.width || 960;
+
+      this.H =
+        rect.height || 540;
     }
 
+    // -------------------------------------------------------
+    // Arena
+    // -------------------------------------------------------
 
-    /* =======================================================
-       ARENA
-       
-       ・上下は完全に壁
-       ・左右はゴール部分だけ開ける
-       ・それ以外は壁
-    ======================================================= */
-
-    makeArena(){
-
-      const wall={
-
-        isStatic:true,
-
-        restitution:1,
-
-        friction:0,
-
-        frictionStatic:0,
-
-        slop:0
-
+    makeArena() {
+      const wall = {
+        isStatic: true,
+        restitution: 1,
+        friction: 0,
+        frictionStatic: 0,
+        slop: 0
       };
 
+      this.goalW = 300;
 
-      this.goalW=300;
+      const sideWallH =
+        (this.H - this.goalW) / 2;
 
+      const upperCenter =
+        sideWallH / 2;
 
-      const sideWallH=
-        (this.H-this.goalW)/2;
-
-
-      const upperCenter=
-        sideWallH/2;
-
-
-      const lowerCenter=
-        this.H-
-        sideWallH/2;
-
+      const lowerCenter =
+        this.H -
+        sideWallH / 2;
 
       Matter.World.add(
         this.world,
         [
-
           Matter.Bodies.rectangle(
-            this.W/2,
+            this.W / 2,
             -10,
-            this.W+40,
+            this.W + 40,
             20,
             wall
           ),
-
 
           Matter.Bodies.rectangle(
-            this.W/2,
-            this.H+10,
-            this.W+40,
+            this.W / 2,
+            this.H + 10,
+            this.W + 40,
             20,
             wall
           ),
 
-
+          // 左上
           Matter.Bodies.rectangle(
             -10,
             upperCenter,
@@ -1235,7 +1030,7 @@
             wall
           ),
 
-
+          // 左下
           Matter.Bodies.rectangle(
             -10,
             lowerCenter,
@@ -1244,182 +1039,122 @@
             wall
           ),
 
-
+          // 右上
           Matter.Bodies.rectangle(
-            this.W+10,
+            this.W + 10,
             upperCenter,
             20,
             sideWallH,
             wall
           ),
 
-
+          // 右下
           Matter.Bodies.rectangle(
-            this.W+10,
+            this.W + 10,
             lowerCenter,
             20,
             sideWallH,
             wall
           )
-
         ]
       );
     }
 
-
-    /* =======================================================
-       BODY FROM DRAWING
-    ======================================================= */
+    // -------------------------------------------------------
+    // Polygon body
+    // -------------------------------------------------------
 
     bodyFromDrawing(
       drawing,
       x,
       y,
-      scale
-    ){
-
-      if(
+      radius,
+      options = {}
+    ) {
+      if (
         !drawing ||
-        drawing.length<3
-      ){
-
-        const body=
-          Matter.Bodies.circle(
-            x,
-            y,
-            scale*0.45,
-            {
-
-              restitution:0.9,
-
-              friction:0,
-
-              frictionAir:0
-
-            }
-          );
-
-
-        body.drawShape=null;
-
-        body.drawScale=
-          scale;
-
-
-        return body;
+        !Array.isArray(drawing) ||
+        drawing.length < 3
+      ) {
+        return Matter.Bodies.circle(
+          x,
+          y,
+          radius,
+          options
+        );
       }
 
+      const scale = radius;
 
-      const vertices=
-        drawing.map(
-          p=>({
+      const vertices =
+        drawing.map((p) => ({
+          x: p.x * scale,
+          y: p.y * scale
+        }));
 
-            x:p.x*scale,
-
-            y:p.y*scale
-
-          })
-        );
-
-
-      let body;
-
-
-      try{
-
-        body=
+      try {
+        const body =
           Matter.Bodies.fromVertices(
             x,
             y,
             [vertices],
             {
-
-              restitution:0.9,
-
-              friction:0,
-
-              frictionAir:0
-
+              ...options,
+              render: {
+                visible: false
+              }
             },
-
             true
           );
 
-      }catch(err){
-
-        console.error(
+        if (body) {
+          return body;
+        }
+      } catch (err) {
+        console.warn(
           "fromVertices失敗:",
           err
         );
-
-
-        body=
-          Matter.Bodies.circle(
-            x,
-            y,
-            scale*0.45,
-            {
-
-              restitution:0.9,
-
-              friction:0,
-
-              frictionAir:0
-
-            }
-          );
       }
 
-
-      body.drawShape=
-        drawing;
-
-
-      body.drawScale=
-        scale;
-
-
-      return body;
+      return Matter.Bodies.circle(
+        x,
+        y,
+        radius,
+        options
+      );
     }
 
+    // -------------------------------------------------------
+    // Puck
+    // -------------------------------------------------------
 
-    /* =======================================================
-       PUCK
-    ======================================================= */
+    makePuck() {
+      if (this.puck) {
+        Matter.World.remove(
+          this.world,
+          this.puck
+        );
+      }
 
-    makePuck(){
+      const drawing =
+        this.currentPuck === 0
+          ? this.drawings.host?.puck
+          : this.drawings.guest?.puck;
 
-      const side=
-        this.currentPuck===0
-          ?"host"
-          :"guest";
-
-
-      const drawing=
-        this.drawings[
-          side
-        ]?.puck;
-
-
-      this.puck=
+      this.puck =
         this.bodyFromDrawing(
           drawing,
-          this.W/2,
-          this.H/2,
-          70
+          this.W / 2,
+          this.H / 2,
+          32,
+          {
+            restitution: 0.92,
+            friction: 0,
+            frictionAir: 0.002,
+            density: 0.002
+          }
         );
-
-
-      this.puck.playerShape=
-        this.currentPuck;
-
-
-      this.puck.drawShape=
-        drawing;
-
-
-      this.puck.drawScale=70;
-
 
       Matter.World.add(
         this.world,
@@ -1427,49 +1162,46 @@
       );
     }
 
+    // -------------------------------------------------------
+    // Mallets
+    // -------------------------------------------------------
 
-    /* =======================================================
-       MALLETS
-    ======================================================= */
-
-    makeMallets(){
-
-      const hostDrawing=
+    makeMallets() {
+      const hostDrawing =
         this.drawings.host?.mallet;
 
-
-      const guestDrawing=
+      const guestDrawing =
         this.drawings.guest?.mallet;
 
+      const malletOptions = {
+        isStatic: true,
+        restitution: 0.85,
+        friction: 0,
+        frictionStatic: 0
+      };
 
-      const hostMallet=
+      const hostMallet =
         this.bodyFromDrawing(
           hostDrawing,
-          this.W*0.25,
-          this.H/2,
-          55
+          this.W * 0.25,
+          this.H * 0.5,
+          48,
+          malletOptions
         );
 
-
-      const guestMallet=
+      const guestMallet =
         this.bodyFromDrawing(
           guestDrawing,
-          this.W*0.75,
-          this.H/2,
-          55
+          this.W * 0.75,
+          this.H * 0.5,
+          48,
+          malletOptions
         );
 
-
-      hostMallet.isStatic=true;
-
-      guestMallet.isStatic=true;
-
-
-      this.mallets=[
+      this.mallets = [
         hostMallet,
         guestMallet
       ];
-
 
       Matter.World.add(
         this.world,
@@ -1477,202 +1209,204 @@
       );
     }
 
+    // -------------------------------------------------------
+    // Reset puck
+    // -------------------------------------------------------
 
-    /* =======================================================
-       RESET PUCK
-    ======================================================= */
-
-    resetPuck(
-      nextPlayer
-    ){
-
-      if(this.puck){
-
-        Matter.World.remove(
-          this.world,
-          this.puck
-        );
-      }
-
-
-      this.currentPuck=
-        nextPlayer;
-
+    resetPuck(nextPlayer) {
+      this.currentPuck =
+        nextPlayer === 0 ||
+        nextPlayer === 1
+          ? nextPlayer
+          : this.currentPuck;
 
       this.makePuck();
-
 
       Matter.Body.setPosition(
         this.puck,
         {
-          x:this.W/2,
-          y:this.H/2
+          x: this.W / 2,
+          y: this.H / 2
         }
       );
-
 
       Matter.Body.setVelocity(
         this.puck,
         {
           x:
-            (Math.random()<0.5
-              ?-1
-              :1)*7,
-
+            this.currentPuck === 0
+              ? 5
+              : -5,
           y:
-            (Math.random()-0.5)*5
+            (Math.random() - 0.5) *
+            4
         }
       );
-
 
       Matter.Body.setAngularVelocity(
         this.puck,
         0
       );
 
-
-      this.roundPause=
-        performance.now()+900;
+      this.roundPause =
+        performance.now() + 900;
     }
 
+    // -------------------------------------------------------
+    // Score
+    // -------------------------------------------------------
 
-    /* =======================================================
-       SCORE
-    ======================================================= */
-
-    score(side){
-
-      if(
-        this.roundPause &&
-        performance.now()<
-        this.roundPause
-      ){
-
-        return;
-      }
-
+    score(side) {
+      if (!this.running) return;
 
       this.scores[side]++;
 
+      this.updateScoreUI();
 
-      $("score1").textContent=
-        this.scores[0];
-
-
-      $("score2").textContent=
-        this.scores[1];
-
-
-      console.log(
-        "★ 得点:",
-        side,
-        this.scores
-      );
-
-
-      if(
-        this.scores[side]>=5
-      ){
-
+      if (this.scores[side] >= 5) {
         this.finish(side);
-
         return;
       }
 
+      // 次の得点後はパックの形を交代
+      const nextPuck =
+        this.currentPuck === 0
+          ? 1
+          : 0;
 
-      const nextPlayer=
-        this.currentPuck===0
-          ?1
-          :0;
+      this.resetPuck(nextPuck);
 
-
-      this.resetPuck(
-        nextPlayer
-      );
-
-
-      send(
-        "reset",
-        {
-
-          scores:[
+      if (this.host) {
+        send("reset", {
+          scores: [
             this.scores[0],
             this.scores[1]
           ],
-
-          currentPuck:
-            this.currentPuck
-
-        }
-      );
+          currentPuck: nextPuck
+        });
+      }
     }
 
+    // -------------------------------------------------------
+    // Finish
+    // -------------------------------------------------------
 
-    /* =======================================================
-       FINISH
-    ======================================================= */
+    finish(winner) {
+      if (!this.running) return;
 
-    finish(winner){
+      this.running = false;
 
-      this.running=false;
+      state.running = false;
 
-      state.running=false;
-
-
-      $("roundMsg").textContent=
-        winner===0
-          ?"プレイヤー1の勝利！"
-          :"プレイヤー2の勝利！";
-
-
-      send(
-        "finish",
-        {
+      if (this.host) {
+        send("finish", {
+          scores: [
+            this.scores[0],
+            this.scores[1]
+          ],
           winner
-        }
+        });
+      }
+
+      this.showResult(winner);
+    }
+
+    remoteFinish(p) {
+      if (!this.running) return;
+
+      this.scores =
+        Array.isArray(p.scores)
+          ? [
+              p.scores[0],
+              p.scores[1]
+            ]
+          : this.scores;
+
+      this.updateScoreUI();
+
+      this.running = false;
+
+      state.running = false;
+
+      this.showResult(
+        p.winner
       );
     }
 
+    showResult(winner) {
+      const localWin =
+        winner === this.localSide;
 
-    /* =======================================================
-       GUEST INPUT
-    ======================================================= */
+      setText(
+        "resultText",
+        localWin
+          ? "YOU WIN!"
+          : "YOU LOSE!"
+      );
 
-    applyGuestInput(p){
+      setText(
+        "finalScore",
+        `${this.scores[0]} - ${this.scores[1]}`
+      );
 
-      if(!this.host){
-        return;
+      show("result");
+    }
+
+    // -------------------------------------------------------
+    // Remote reset
+    // -------------------------------------------------------
+
+    remoteReset(p) {
+      if (!p) return;
+
+      if (Array.isArray(p.scores)) {
+        this.scores = [
+          p.scores[0],
+          p.scores[1]
+        ];
       }
 
+      this.currentPuck =
+        p.currentPuck === 0 ||
+        p.currentPuck === 1
+          ? p.currentPuck
+          : this.currentPuck;
 
-      if(
-        !p.position ||
-        !this.mallets[1]
-      ){
+      this.updateScoreUI();
 
-        return;
-      }
+      this.resetPuck(
+        this.currentPuck
+      );
+    }
 
+    // -------------------------------------------------------
+    // Guest input
+    // -------------------------------------------------------
 
-      const x=
+    applyGuestInput(p) {
+      if (!this.host) return;
+
+      if (!p.position) return;
+
+      if (!this.mallets[1]) return;
+
+      const x =
         Math.max(
-          this.W/2+40,
+          this.W / 2 + 40,
           Math.min(
-            this.W-40,
+            this.W - 40,
             p.position.x
           )
         );
 
-
-      const y=
+      const y =
         Math.max(
           55,
           Math.min(
-            this.H-55,
+            this.H - 55,
             p.position.y
           )
         );
-
 
       Matter.Body.setPosition(
         this.mallets[1],
@@ -1682,1182 +1416,899 @@
         }
       );
 
-
       Matter.Body.setVelocity(
         this.mallets[1],
         {
-          x:0,
-          y:0
+          x: 0,
+          y: 0
         }
       );
     }
 
+    // -------------------------------------------------------
+    // Network state
+    // -------------------------------------------------------
 
-    /* =======================================================
-       REMOTE STATE
-    ======================================================= */
+    applyNetworkState(p) {
+      if (!this.puck) return;
 
-    applyRemote(p){
-
-      if(this.host){
-        return;
+      if (p.puck?.pos) {
+        Matter.Body.setPosition(
+          this.puck,
+          {
+            x: p.puck.pos.x,
+            y: p.puck.pos.y
+          }
+        );
       }
 
+      if (p.puck?.vel) {
+        Matter.Body.setVelocity(
+          this.puck,
+          {
+            x: p.puck.vel.x,
+            y: p.puck.vel.y
+          }
+        );
+      }
 
-      if(
-        p.scores &&
-        p.scores.length>=2
-      ){
+      if (
+        typeof p.puck?.angle ===
+        "number"
+      ) {
+        Matter.Body.setAngle(
+          this.puck,
+          p.puck.angle
+        );
+      }
 
-        this.scores=[
+      if (Array.isArray(p.mallets)) {
+        p.mallets.forEach(
+          (m, i) => {
+            if (
+              i === this.localSide
+            ) {
+              return;
+            }
+
+            if (!this.mallets[i]) {
+              return;
+            }
+
+            Matter.Body.setPosition(
+              this.mallets[i],
+              {
+                x: m.x,
+                y: m.y
+              }
+            );
+          }
+        );
+      }
+
+      if (Array.isArray(p.scores)) {
+        this.scores = [
           p.scores[0],
           p.scores[1]
         ];
 
-
-        $("score1").textContent=
-          this.scores[0];
-
-
-        $("score2").textContent=
-          this.scores[1];
-      }
-
-
-      if(
-        p.puck &&
-        this.puck
-      ){
-
-        Matter.Body.setPosition(
-          this.puck,
-          p.puck.pos
-        );
-
-
-        Matter.Body.setVelocity(
-          this.puck,
-          p.puck.vel
-        );
-
-
-        if(
-          typeof p.puck.angle===
-          "number"
-        ){
-
-          Matter.Body.setAngle(
-            this.puck,
-            p.puck.angle
-          );
-        }
-      }
-
-
-      if(
-        p.mallets &&
-        p.mallets.length>=2
-      ){
-
-        for(
-          let i=0;
-          i<2;
-          i++
-        ){
-
-          if(
-            !this.mallets[i]
-          ){
-
-            continue;
-          }
-
-
-          Matter.Body.setPosition(
-            this.mallets[i],
-            {
-              x:p.mallets[i].x,
-              y:p.mallets[i].y
-            }
-          );
-        }
+        this.updateScoreUI();
       }
     }
 
+    // -------------------------------------------------------
+    // Input
+    // -------------------------------------------------------
 
-    /* =======================================================
-       REMOTE RESET
-    ======================================================= */
+    bindInput() {
+      let dragging = false;
 
-    remoteReset(p){
+      const canvas = this.canvas;
 
-      this.scores=[
-        p.scores[0],
-        p.scores[1]
-      ];
+      const getPoint = (e) => {
+        const rect =
+          canvas.getBoundingClientRect();
 
+        return {
+          x:
+            e.clientX -
+            rect.left,
 
-      $("score1").textContent=
-        p.scores[0];
+          y:
+            e.clientY -
+            rect.top
+        };
+      };
 
+      const moveMallet = (e) => {
+        if (!dragging) return;
 
-      $("score2").textContent=
-        p.scores[1];
+        e.preventDefault();
 
+        const p = getPoint(e);
 
-      this.resetPuck(
-        p.currentPuck
-      );
-    }
+        const index =
+          this.localSide;
 
-
-    /* =======================================================
-       INPUT
-    ======================================================= */
-
-    bindInput(){
-
-      const c=
-        this.canvas;
-
-
-      let drag=false;
-
-
-      const move=e=>{
-
-        if(!drag){
+        if (!this.mallets[index]) {
           return;
         }
 
+        let x = p.x;
+        let y = p.y;
 
-        const r=
-          c.getBoundingClientRect();
-
-
-        const x=
-          (e.clientX-r.left)*
-          this.W/r.width;
-
-
-        const y=
-          (e.clientY-r.top)*
-          this.H/r.height;
-
-
-        const side=
-          this.localSide;
-
-
-        const minX=
-          side
-            ?this.W/2+40
-            :40;
-
-
-        const maxX=
-          side
-            ?this.W-40
-            :this.W/2-40;
-
-
-        const newPos={
-
-          x:
+        if (index === 0) {
+          x =
             Math.max(
-              minX,
+              40,
               Math.min(
-                maxX,
+                this.W / 2 - 40,
                 x
               )
-            ),
-
-          y:
+            );
+        } else {
+          x =
             Math.max(
-              55,
+              this.W / 2 + 40,
               Math.min(
-                this.H-55,
-                y
+                this.W - 40,
+                x
               )
+            );
+        }
+
+        y =
+          Math.max(
+            55,
+            Math.min(
+              this.H - 55,
+              y
             )
+          );
 
-        };
+        if (this.host) {
+          Matter.Body.setPosition(
+            this.mallets[index],
+            { x, y }
+          );
 
-
-        Matter.Body.setPosition(
-          this.mallets[side],
-          newPos
-        );
-
-
-        if(!this.host){
-
-          const now=
+          Matter.Body.setVelocity(
+            this.mallets[index],
+            { x: 0, y: 0 }
+          );
+        } else {
+          const now =
             performance.now();
 
-
-          if(
-            now-
-            this.lastInputSend>
+          if (
+            now -
+              this.lastInputSend >
             15
-          ){
-
-            send(
-              "input",
-              {
-                position:newPos
+          ) {
+            send("input", {
+              position: {
+                x,
+                y
               }
-            );
+            });
 
-
-            this.lastInputSend=
-              now;
+            this.lastInputSend = now;
           }
+
+          // 自分の画面でも動かす
+          Matter.Body.setPosition(
+            this.mallets[index],
+            { x, y }
+          );
+
+          Matter.Body.setVelocity(
+            this.mallets[index],
+            { x: 0, y: 0 }
+          );
         }
       };
 
+      const start = (e) => {
+        e.preventDefault();
 
-      c.onpointerdown=e=>{
+        dragging = true;
 
-        drag=true;
-
-        move(e);
-
-
-        try{
-
-          c.setPointerCapture(
+        try {
+          canvas.setPointerCapture(
             e.pointerId
           );
+        } catch (err) {}
 
-        }catch(err){}
+        moveMallet(e);
       };
 
+      const end = (e) => {
+        dragging = false;
 
-      c.onpointermove=move;
-
-
-      c.onpointerup=()=>{
-        drag=false;
+        try {
+          canvas.releasePointerCapture(
+            e.pointerId
+          );
+        } catch (err) {}
       };
 
+      canvas.addEventListener(
+        "pointerdown",
+        start
+      );
 
-      c.onpointercancel=()=>{
-        drag=false;
-      };
+      canvas.addEventListener(
+        "pointermove",
+        moveMallet
+      );
+
+      canvas.addEventListener(
+        "pointerup",
+        end
+      );
+
+      canvas.addEventListener(
+        "pointercancel",
+        end
+      );
+
+      window.addEventListener(
+        "resize",
+        () => this.resize()
+      );
     }
 
+    // -------------------------------------------------------
+    // Keep puck inside
+    // -------------------------------------------------------
 
-    /* =======================================================
-       OUT OF BOUNDS SAFETY
-    ======================================================= */
+    keepPuckInside() {
+      if (!this.puck) return;
 
-    keepPuckInside(){
+      const x =
+        this.puck.position.x;
 
-      if(!this.puck){
-        return;
-      }
+      const y =
+        this.puck.position.y;
 
+      const goalTop =
+        this.H / 2 -
+        this.goalW / 2;
 
-      const p=
-        this.puck.position;
+      const goalBottom =
+        this.H / 2 +
+        this.goalW / 2;
 
+      // ゴール部分は通過可能
+      const inGoal =
+        y > goalTop &&
+        y < goalBottom;
 
-      const v=
-        this.puck.velocity;
-
-
-      const inGoal=
-        (
-          p.y>
-            this.H/2-
-            this.goalW/2
-        ) &&
-        (
-          p.y<
-            this.H/2+
-            this.goalW/2
-        );
-
-
-      if(
-        p.x<0 &&
-        !inGoal
-      ){
-
+      if (
+        !inGoal &&
+        x < 28
+      ) {
         Matter.Body.setPosition(
           this.puck,
           {
-            x:25,
-            y:Math.max(
-              20,
-              Math.min(
-                this.H-20,
-                p.y
-              )
-            )
+            x: 30,
+            y
           }
         );
-
 
         Matter.Body.setVelocity(
           this.puck,
           {
             x:
-              Math.abs(v.x),
+              Math.abs(
+                this.puck.velocity.x
+              ),
             y:
-              v.y
+              this.puck.velocity.y
           }
         );
       }
 
-
-      if(
-        p.x>this.W &&
-        !inGoal
-      ){
-
+      if (
+        !inGoal &&
+        x > this.W - 28
+      ) {
         Matter.Body.setPosition(
           this.puck,
           {
-            x:this.W-25,
-            y:Math.max(
-              20,
-              Math.min(
-                this.H-20,
-                p.y
-              )
-            )
+            x: this.W - 30,
+            y
           }
         );
-
 
         Matter.Body.setVelocity(
           this.puck,
           {
             x:
-              -Math.abs(v.x),
+              -Math.abs(
+                this.puck.velocity.x
+              ),
             y:
-              v.y
+              this.puck.velocity.y
           }
         );
       }
 
-
-      if(
-        p.y<0
-      ){
-
+      if (y < 28) {
         Matter.Body.setPosition(
           this.puck,
           {
-            x:Math.max(
-              20,
-              Math.min(
-                this.W-20,
-                p.x
-              )
-            ),
-            y:25
+            x,
+            y: 30
           }
         );
-
 
         Matter.Body.setVelocity(
           this.puck,
           {
-            x:v.x,
+            x:
+              this.puck.velocity.x,
             y:
-              Math.abs(v.y)
+              Math.abs(
+                this.puck.velocity.y
+              )
           }
         );
       }
 
-
-      if(
-        p.y>this.H
-      ){
-
+      if (y > this.H - 28) {
         Matter.Body.setPosition(
           this.puck,
           {
-            x:Math.max(
-              20,
-              Math.min(
-                this.W-20,
-                p.x
-              )
-            ),
-            y:this.H-25
+            x,
+            y: this.H - 30
           }
         );
-
 
         Matter.Body.setVelocity(
           this.puck,
           {
-            x:v.x,
+            x:
+              this.puck.velocity.x,
             y:
-              -Math.abs(v.y)
+              -Math.abs(
+                this.puck.velocity.y
+              )
           }
         );
       }
     }
 
+    // -------------------------------------------------------
+    // Speed limit
+    // -------------------------------------------------------
 
-    /* =======================================================
-       速度制限
-    ======================================================= */
+    limitPuckSpeed() {
+      if (!this.puck) return;
 
-    limitPuckSpeed(){
-
-      if(!this.puck){
-        return;
-      }
-
-
-      const maxSpeed=14;
-
-
-      const vx=
+      const vx =
         this.puck.velocity.x;
 
-
-      const vy=
+      const vy =
         this.puck.velocity.y;
 
+      const speed =
+        Math.hypot(vx, vy);
 
-      const speed=
-        Math.sqrt(
-          vx*vx+
-          vy*vy
-        );
+      const maxSpeed = 15;
 
-
-      if(
-        speed>maxSpeed
-      ){
-
-        const ratio=
-          maxSpeed/speed;
-
+      if (speed > maxSpeed) {
+        const scale =
+          maxSpeed / speed;
 
         Matter.Body.setVelocity(
           this.puck,
           {
-            x:vx*ratio,
-            y:vy*ratio
+            x: vx * scale,
+            y: vy * scale
+          }
+        );
+      }
+
+      if (
+        speed > 0 &&
+        speed < 1.2
+      ) {
+        const scale =
+          1.2 / speed;
+
+        Matter.Body.setVelocity(
+          this.puck,
+          {
+            x: vx * scale,
+            y: vy * scale
           }
         );
       }
     }
 
+    // -------------------------------------------------------
+    // Score UI
+    // -------------------------------------------------------
 
-    /* =======================================================
-       GAME LOOP
-    ======================================================= */
+    updateScoreUI() {
+      setText(
+        "hostScore",
+        this.scores[0]
+      );
 
-    loop(t){
+      setText(
+        "guestScore",
+        this.scores[1]
+      );
 
-      if(!this.running){
+      setText(
+        "scoreLeft",
+        this.scores[0]
+      );
+
+      setText(
+        "scoreRight",
+        this.scores[1]
+      );
+    }
+
+    // -------------------------------------------------------
+    // Main loop
+    // -------------------------------------------------------
+
+    loop(t) {
+      if (!this.running) {
         return;
       }
 
-
-      const dt=
+      const dt =
         Math.min(
           16.667,
           Math.max(
             0,
-            t-this.last
+            t - this.last
           )
         );
 
+      this.last = t;
 
-      this.last=t;
-
-
-      if(this.host){
-
-        if(
+      if (this.host) {
+        if (
           !this.roundPause ||
-          t>this.roundPause
-        ){
-
+          t > this.roundPause
+        ) {
           Matter.Engine.update(
             this.engine,
             dt
           );
         }
 
-
-        /*
-         * ゴール判定
-         */
-
-        const x=
+        const x =
           this.puck.position.x;
 
-
-        const y=
+        const y =
           this.puck.position.y;
 
+        const goalTop =
+          this.H / 2 -
+          this.goalW / 2;
 
-        if(
-          x<25 &&
-          y>
-            this.H/2-
-            this.goalW/2 &&
-          y<
-            this.H/2+
-            this.goalW/2
-        ){
+        const goalBottom =
+          this.H / 2 +
+          this.goalW / 2;
 
-          console.log(
-            "★ 左ゴール！"
-          );
-
-
+        if (
+          x < 25 &&
+          y > goalTop &&
+          y < goalBottom
+        ) {
           this.score(1);
-
-        }
-
-        else if(
-          x>this.W-25 &&
-          y>
-            this.H/2-
-            this.goalW/2 &&
-          y<
-            this.H/2+
-            this.goalW/2
-        ){
-
-          console.log(
-            "★ 右ゴール！"
-          );
-
-
+        } else if (
+          x > this.W - 25 &&
+          y > goalTop &&
+          y < goalBottom
+        ) {
           this.score(0);
         }
 
-
-        /*
-         * ゴールしていない場合だけ
-         * 場外安全処理
-         */
-
-        if(
-          this.running
-        ){
-
+        if (this.running) {
           this.keepPuckInside();
-
           this.limitPuckSpeed();
         }
 
-
-        /*
-         * 状態送信
-         */
-
-        if(
-          t-this.lastSend>25
-        ){
-
-          send(
-            "state",
-            {
-
-              puck:{
-
-                pos:{
-
-                  x:
-                    this.puck.position.x,
-
-                  y:
-                    this.puck.position.y
-
-                },
-
-                vel:{
-
-                  x:
-                    this.puck.velocity.x,
-
-                  y:
-                    this.puck.velocity.y
-
-                },
-
-                angle:
-                  this.puck.angle
-
+        if (
+          t - this.lastSend >
+          25
+        ) {
+          send("state", {
+            puck: {
+              pos: {
+                x:
+                  this.puck.position.x,
+                y:
+                  this.puck.position.y
               },
 
+              vel: {
+                x:
+                  this.puck.velocity.x,
+                y:
+                  this.puck.velocity.y
+              },
 
-              mallets:
-                this.mallets.map(
-                  m=>({
+              angle:
+                this.puck.angle
+            },
 
-                    x:
-                      m.position.x,
+            mallets:
+              this.mallets.map(
+                (m) => ({
+                  x:
+                    m.position.x,
+                  y:
+                    m.position.y
+                })
+              ),
 
-                    y:
-                      m.position.y
+            scores: [
+              this.scores[0],
+              this.scores[1]
+            ]
+          });
 
-                  })
-                ),
-
-
-              scores:[
-
-                this.scores[0],
-
-                this.scores[1]
-
-              ]
-
-            }
-          );
-
-
-          this.lastSend=t;
+          this.lastSend = t;
         }
       }
-
 
       this.draw();
 
-
-      /*
-       * ループ継続
-       */
-
       requestAnimationFrame(
-        tt=>this.loop(tt)
+        (tt) => this.loop(tt)
       );
     }
 
+    // -------------------------------------------------------
+    // Drawing
+    // -------------------------------------------------------
 
-    /* =======================================================
-       DRAW
-    ======================================================= */
+    draw() {
+      const ctx = this.ctx;
 
-    draw(){
+      const W = this.W;
+      const H = this.H;
 
-      const c=
-        this.ctx;
-
-
-      c.clearRect(
+      ctx.clearRect(
         0,
         0,
-        this.W,
-        this.H
+        W,
+        H
       );
 
+      // 背景
+      ctx.fillStyle = "#10131a";
 
-      /*
-       * テーブル
-       */
-
-      c.fillStyle="#0b7775";
-
-
-      c.fillRect(
+      ctx.fillRect(
         0,
         0,
-        this.W,
-        this.H
+        W,
+        H
       );
 
+      // 外枠
+      ctx.strokeStyle =
+        "#ffffff";
 
-      /*
-       * 外枠
-       */
+      ctx.lineWidth = 4;
 
-      c.strokeStyle="#bff9ef";
-
-      c.lineWidth=4;
-
-
-      c.strokeRect(
-        10,
-        10,
-        this.W-20,
-        this.H-20
+      ctx.strokeRect(
+        2,
+        2,
+        W - 4,
+        H - 4
       );
 
+      // センターライン
+      ctx.beginPath();
 
-      /*
-       * センターライン
-       */
-
-      c.beginPath();
-
-
-      c.moveTo(
-        this.W/2,
-        10
+      ctx.moveTo(
+        W / 2,
+        0
       );
 
-
-      c.lineTo(
-        this.W/2,
-        this.H-10
+      ctx.lineTo(
+        W / 2,
+        H
       );
 
+      ctx.strokeStyle =
+        "rgba(255,255,255,0.25)";
 
-      c.stroke();
+      ctx.lineWidth = 2;
 
+      ctx.stroke();
 
-      /*
-       * センターサークル
-       */
+      // センターサークル
+      ctx.beginPath();
 
-      c.beginPath();
-
-
-      c.arc(
-        this.W/2,
-        this.H/2,
-        90,
+      ctx.arc(
+        W / 2,
+        H / 2,
+        80,
         0,
-        Math.PI*2
+        Math.PI * 2
       );
 
+      ctx.strokeStyle =
+        "rgba(255,255,255,0.25)";
 
-      c.stroke();
+      ctx.stroke();
 
+      // ゴール
+      const goalTop =
+        H / 2 -
+        this.goalW / 2;
 
-      /*
-       * ゴール以外の壁
-       */
+      const goalBottom =
+        H / 2 +
+        this.goalW / 2;
 
-      c.fillStyle="#092e38";
+      ctx.strokeStyle =
+        "rgba(255,255,255,0.5)";
 
+      ctx.beginPath();
 
-      /*
-       * 左上
-       */
-
-      c.fillRect(
+      ctx.moveTo(
         0,
+        goalTop
+      );
+
+      ctx.lineTo(
         0,
-        18,
-        this.H/2-
-        this.goalW/2
+        goalBottom
       );
 
-
-      /*
-       * 左下
-       */
-
-      c.fillRect(
-        0,
-        this.H/2+
-        this.goalW/2,
-        18,
-        this.H/2-
-        this.goalW/2
+      ctx.moveTo(
+        W,
+        goalTop
       );
 
-
-      /*
-       * 右上
-       */
-
-      c.fillRect(
-        this.W-18,
-        0,
-        18,
-        this.H/2-
-        this.goalW/2
+      ctx.lineTo(
+        W,
+        goalBottom
       );
 
+      ctx.stroke();
 
-      /*
-       * 右下
-       */
-
-      c.fillRect(
-        this.W-18,
-        this.H/2+
-        this.goalW/2,
-        18,
-        this.H/2-
-        this.goalW/2
+      // マレット
+      this.drawBody(
+        this.mallets[0],
+        this.drawings.host?.mallet,
+        "#4da3ff"
       );
 
-
-      /*
-       * マレット
-       */
-
-      this.mallets.forEach(
-        (b,i)=>{
-
-          this.drawBody(
-            b,
-            i===this.localSide
-              ?" #ffcf4a".trim()
-              :"#ff6b9d"
-          );
-
-        }
+      this.drawBody(
+        this.mallets[1],
+        this.drawings.guest?.mallet,
+        "#ff6688"
       );
 
-
-      /*
-       * パック
-       */
+      // パック
+      const puckDrawing =
+        this.currentPuck === 0
+          ? this.drawings.host?.puck
+          : this.drawings.guest?.puck;
 
       this.drawBody(
         this.puck,
-        this.currentPuck===
-        this.localSide
-          ?" #fff".trim()
-          :"#d7e4ff"
+        puckDrawing,
+        "#ffd84d"
       );
     }
 
-
-    /* =======================================================
-       DRAW BODY
-    ======================================================= */
-
     drawBody(
-      b,
-      fill
-    ){
+      body,
+      drawing,
+      fallbackColor
+    ) {
+      if (!body) return;
 
-      if(!b){
-        return;
-      }
+      const ctx = this.ctx;
 
+      ctx.save();
 
-      const c=
-        this.ctx;
-
-
-      c.save();
-
-
-      c.translate(
-        b.position.x,
-        b.position.y
+      ctx.translate(
+        body.position.x,
+        body.position.y
       );
 
-
-      c.rotate(
-        b.angle
+      ctx.rotate(
+        body.angle
       );
 
+      ctx.beginPath();
 
-      c.fillStyle=
-        fill;
-
-
-      c.strokeStyle=
-        "#18213a";
-
-
-      c.lineWidth=3;
-
-
-      const shape=
-        b.drawShape;
-
-
-      const scale=
-        b.drawScale;
-
-
-      if(
-        shape &&
-        shape.length>2
-      ){
-
-        c.beginPath();
-
-
-        c.moveTo(
-          shape[0].x*scale,
-          shape[0].y*scale
+      if (
+        drawing &&
+        Array.isArray(drawing) &&
+        drawing.length >= 3
+      ) {
+        ctx.moveTo(
+          drawing[0].x * 48,
+          drawing[0].y * 48
         );
 
-
-        for(
-          const p of
-          shape.slice(1)
-        ){
-
-          c.lineTo(
-            p.x*scale,
-            p.y*scale
+        for (
+          let i = 1;
+          i < drawing.length;
+          i++
+        ) {
+          ctx.lineTo(
+            drawing[i].x * 48,
+            drawing[i].y * 48
           );
         }
 
-
-        c.closePath();
-
-
-        c.fill();
-
-        c.stroke();
-
-      }else{
-
-        c.beginPath();
-
-
-        c.arc(
+        ctx.closePath();
+      } else {
+        ctx.arc(
           0,
           0,
-          scale*0.45,
+          30,
           0,
-          Math.PI*2
+          Math.PI * 2
         );
-
-
-        c.fill();
-
-        c.stroke();
       }
 
+      ctx.fillStyle =
+        fallbackColor;
 
-      c.restore();
+      ctx.fill();
+
+      ctx.strokeStyle =
+        "#ffffff";
+
+      ctx.lineWidth = 2;
+
+      ctx.stroke();
+
+      ctx.restore();
     }
 
-  }
+    // -------------------------------------------------------
+    // Destroy
+    // -------------------------------------------------------
 
+    destroy() {
+      this.running = false;
 
-  /* =========================================================
-     START GAME
-  ========================================================= */
+      try {
+        Matter.World.clear(
+          this.world,
+          false
+        );
 
-  function startGame(
-    drawings,
-    currentPuck
-  ){
-
-    console.log(
-      "★ AirGameを作成します"
-    );
-
-
-    console.log(
-      "★ 使用するパック:",
-      currentPuck===0
-        ?"HOST"
-        :"GUEST"
-    );
-
-
-    state.game=
-      new AirGame(
-        drawings,
-        state.host,
-        currentPuck
-      );
-
-
-    state.running=true;
-
-
-    show("game");
-
-
-    $("roundMsg").textContent=
-      "先に5点！";
-
-
-    /*
-     * 初回のみホストから発射
-     */
-
-    if(state.host){
-
-      Matter.Body.setVelocity(
-        state.game.puck,
-        {
-
-          x:
-            (Math.random()<0.5
-              ?-1
-              :1)*7,
-
-          y:
-            (Math.random()-0.5)*5
-
-        }
-      );
+        Matter.Engine.clear(
+          this.engine
+        );
+      } catch (err) {
+        console.warn(err);
+      }
     }
   }
 
+  // =========================================================
+  // Buttons
+  // =========================================================
 
-  /* =========================================================
-     READY BUTTON
-  ========================================================= */
-
-  const readyButton=
-    $("readyBtn");
-
-
-  if(readyButton){
-
-    readyButton.onclick=()=>{
-
-      if(
-        !state.drawings.puck ||
-        !state.drawings.mallet
-      ){
-
-        alert(
-          "パックとマレットの両方を描いてください"
-        );
-
-        return;
-      }
-
-
-      state.ready=true;
-
-
-      readyButton.disabled=true;
-
-
-      statusText(
-        "準備完了。相手を待っています..."
-      );
-
-
-      send(
-        "ready",
-        {
-          drawings:
-            state.drawings
-        }
-      );
-
-
-      if(
-        state.host &&
-        state.opponent?.ready
-      ){
-
-        const firstPuck=
-          Math.random()<0.5
-            ?0
-            :1;
-
-
-        const drawings={
-
-          host:
-            state.drawings,
-
-          guest:
-            state.opponent.drawings
-
-        };
-
-
-        send(
-          "start",
-          {
-
-            drawings,
-
-            currentPuck:
-              firstPuck
-
-          }
-        );
-
-
-        startGame(
-          drawings,
-          firstPuck
-        );
-      }
-    };
-  }
-
-
-  /* =========================================================
-     BUTTONS
-  ========================================================= */
-
-  const createBtn=
+  const createBtn =
     $("createRoomBtn");
 
-
-  if(createBtn){
-
-    createBtn.onclick=
-      createRoom;
+  if (createBtn) {
+    createBtn.addEventListener(
+      "click",
+      () => {
+        createRoom();
+      }
+    );
   }
 
-
-  const joinBtn=
+  const joinBtn =
     $("joinRoomBtn");
 
+  if (joinBtn) {
+    joinBtn.addEventListener(
+      "click",
+      () => {
+        const input =
+          $("roomInput");
 
-  if(joinBtn){
+        const code =
+          input
+            ? input.value
+            : "";
 
-    joinBtn.onclick=()=>{
-
-      const input=
-        $("roomInput");
-
-
-      const code=
-        input
-          ?input.value
-          :"";
-
-
-      joinRoom(code);
-    };
+        joinRoom(code);
+      }
+    );
   }
 
-
-  const quickBtn=
+  const quickBtn =
     $("quickMatchBtn");
 
-
-  if(quickBtn){
-
-    quickBtn.onclick=
-      quickMatch;
+  if (quickBtn) {
+    quickBtn.addEventListener(
+      "click",
+      () => {
+        quickMatch();
+      }
+    );
   }
 
+  const readyBtn =
+    $("readyBtn");
 
-  /* =========================================================
-     DRAWING PADS
-  ========================================================= */
+  if (readyBtn) {
+    readyBtn.addEventListener(
+      "click",
+      () => {
+        sendReady();
+      }
+    );
+  }
+
+  // 結果画面から戻る
+  const backBtn =
+    $("backToMenuBtn");
+
+  if (backBtn) {
+    backBtn.addEventListener(
+      "click",
+      () => {
+        if (state.channel) {
+          try {
+            supabaseClient.removeChannel(
+              state.channel
+            );
+          } catch (err) {}
+        }
+
+        state.channel = null;
+        state.roomCode = null;
+        state.host = false;
+        state.ready = false;
+        state.running = false;
+        state.opponent = null;
+
+        if (state.game) {
+          state.game.destroy();
+          state.game = null;
+        }
+
+        show("menu");
+
+        statusText("");
+      }
+    );
+  }
+
+  // =========================================================
+  // Initial setup
+  // =========================================================
 
   setupPad(
     "puckCanvas",
     "puck"
   );
 
-
   setupPad(
     "malletCanvas",
     "mallet"
   );
 
-
-  /* =========================================================
-     INITIAL
-  ========================================================= */
+  updateReadyUI();
 
   show("menu");
-
 
   console.log(
     "★ game.js 読み込み完了"
