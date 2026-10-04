@@ -4,6 +4,11 @@
 */
 (() => {
   const $ = id => document.getElementById(id);
+
+  // Matter.jsに凹んだ図形を扱わせる
+  if(window.decomp){
+    Matter.Common.setDecomp(window.decomp);
+  }
   const cfg = window.AIR_HOCKEY_CONFIG || {};
   const hasCloud = cfg.SUPABASE_URL && cfg.SUPABASE_URL.includes("supabase.co") &&
                    cfg.SUPABASE_ANON_KEY && !cfg.SUPABASE_ANON_KEY.includes("YOUR-");
