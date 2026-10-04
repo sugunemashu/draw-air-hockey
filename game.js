@@ -240,9 +240,11 @@ resize(){
         .map(p=>({x:p.x*scale,y:p.y*scale}));
       return Matter.Bodies.fromVertices(x,y,[verts],{restitution:.95,friction:.01,frictionAir:.002,...options},true);
     }
-    makePuck(){
+makePuck(){
   const side=this.currentPuck===0?"host":"guest";
   const d=this.drawings[side]?.puck;
+
+  console.log("★ パックの形データ:", d);
 
   this.puck=this.bodyFromDrawing(
     d,
