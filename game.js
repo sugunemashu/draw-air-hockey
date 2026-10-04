@@ -38,7 +38,10 @@
       : null;
 
 
-  // poly-decomp が存在する場合は登録
+  // =========================================================
+  // MATTER / POLY-DECOMP
+  // =========================================================
+
   if (
     window.Matter &&
     window.decomp &&
@@ -357,9 +360,7 @@
 
 
       points = [
-
         getPosition(e)
-
       ];
 
 
@@ -440,27 +441,20 @@
       state.drawings[key] = {
 
         polygon:
-
           polygon,
-
 
         color:
           currentColor,
 
-
         width:
           currentWidth,
-
 
         sourceWidth:
           canvas.width,
 
-
         sourceHeight:
           canvas.height,
 
-
-        // 物理形状用
         strokeWidthNorm:
           currentWidth /
           normalizationScale
@@ -473,6 +467,10 @@
     // -------------------------------------------------------
     // EVENTS
     // -------------------------------------------------------
+
+    canvas.style.touchAction =
+      "none";
+
 
     canvas.addEventListener(
       "pointerdown",
@@ -708,13 +706,11 @@
 
 
     const centerX =
-      (minX + maxX) /
-      2;
+      (minX + maxX) / 2;
 
 
     const centerY =
-      (minY + maxY) /
-      2;
+      (minY + maxY) / 2;
 
 
     const scale =
@@ -725,13 +721,11 @@
       || 1;
 
 
-    // 以前の28点よりも形状を残す
     const step =
       Math.max(
         1,
         Math.ceil(
-          points.length /
-          60
+          points.length / 60
         )
       );
 
@@ -748,17 +742,14 @@
             (
               point.x -
               centerX
-            )
-            /
+            ) /
             scale,
-
 
           y:
             (
               point.y -
               centerY
-            )
-            /
+            ) /
             scale
 
         })
@@ -873,7 +864,7 @@
     );
 
 
-    // GUEST INPUT
+    // GUEST MALLET INPUT
 
     state.channel.on(
       "broadcast",
@@ -946,7 +937,7 @@
 
 
     // =======================================================
-    // SUPABASE SUBSCRIBE
+    // SUBSCRIBE
     // =======================================================
 
     await new Promise(
@@ -1096,15 +1087,12 @@
       type:
         "broadcast",
 
-
       event:
         event,
-
 
       payload: {
 
         ...payload,
-
 
         from:
           state.playerId
@@ -1139,8 +1127,6 @@
     }
 
 
-    // HOST
-
     if (state.host) {
 
       state.opponent = {
@@ -1161,8 +1147,6 @@
 
     }
 
-
-    // GUEST
 
     state.opponent = {
 
@@ -1235,51 +1219,72 @@
       state.ready
     ) {
 
-      const drawings = {
-
-        host:
-          state.drawings,
-
-
-        guest:
-          payload.drawings
-
-      };
-
-
-      // ホストが最初のパック所有者を決定
-      const currentPuck =
-        Math.random() <
-        0.5
-          ? 0
-          : 1;
-
-
-      send(
-        "start",
-        {
-
-          drawings:
-            drawings,
-
-
-          currentPuck:
-            currentPuck,
-
-
-          seed:
-            Math.random()
-
-        }
-      );
-
-
-      startGame(
-        drawings,
-        currentPuck
+      startMatch(
+        payload.drawings
       );
 
     }
+
+  }
+
+
+  // =========================================================
+  // START MATCH
+  // =========================================================
+
+  function startMatch(
+    guestDrawings
+  ) {
+
+    if (
+      !guestDrawings
+    ) {
+
+      console.error(
+        "[DRAW AIR HOCKEY] guest drawing missing"
+      );
+
+      return;
+
+    }
+
+
+    const drawings = {
+
+      host:
+        state.drawings,
+
+      guest:
+        guestDrawings
+
+    };
+
+
+    const currentPuck =
+      Math.random() <
+      0.5
+        ? 0
+        : 1;
+
+
+    send(
+      "start",
+      {
+
+        drawings:
+          drawings,
+
+        currentPuck:
+          currentPuck
+
+      }
+    );
+
+
+    startGame(
+      drawings,
+      currentPuck
+    );
 
   }
 
@@ -1297,15 +1302,26 @@
     }
 
 
-    if (!payload.drawings) {
+    if (
+      state.host
+    ) {
+
       return;
+
     }
 
 
-    // HOST自身は無視
+    if (
+      !payload.drawings
+    ) {
 
-    if (state.host) {
+      console.error(
+        "[DRAW AIR HOCKEY] start drawing missing",
+        payload
+      );
+
       return;
+
     }
 
 
@@ -1314,22 +1330,16 @@
       host:
         payload.drawings.host,
 
-
       guest:
         payload.drawings.guest
 
     };
 
 
-    state.opponent = {
-
-      ...(state.opponent || {}),
-
-
-      drawings:
-        payload.drawings.host
-
-    };
+    console.log(
+      "[DRAW AIR HOCKEY] received drawings",
+      drawings
+    );
 
 
     startGame(
@@ -1541,14 +1551,11 @@
               code:
                 code,
 
-
               host_id:
                 state.playerId,
 
-
               guest_id:
                 null,
-
 
               status:
                 "waiting"
@@ -1561,18 +1568,14 @@
           state.room =
             code;
 
-
           state.role =
             "host";
-
 
           state.host =
             true;
 
-
           state.ready =
             false;
-
 
           state.opponent =
             null;
@@ -1601,10 +1604,8 @@
           send(
             "signal",
             {
-
               role:
                 "host"
-
             }
           );
 
@@ -1801,7 +1802,6 @@
             guest_id:
               state.playerId,
 
-
             status:
               "playing"
 
@@ -1831,14 +1831,11 @@
       state.room =
         code;
 
-
       state.role =
         "guest";
 
-
       state.host =
         false;
-
 
       state.ready =
         false;
@@ -1860,10 +1857,8 @@
       send(
         "signal",
         {
-
           role:
             "guest"
-
         }
       );
 
@@ -1979,14 +1974,11 @@
                 code:
                   code,
 
-
                 host_id:
                   waitingPlayer.player_id,
 
-
                 guest_id:
                   state.playerId,
-
 
                 status:
                   "playing"
@@ -2054,7 +2046,6 @@
             status:
               "matched",
 
-
             room_code:
               roomCode
 
@@ -2068,10 +2059,8 @@
         state.room =
           roomCode;
 
-
         state.role =
           "guest";
-
 
         state.host =
           false;
@@ -2090,10 +2079,8 @@
         send(
           "signal",
           {
-
             role:
               "guest"
-
           }
         );
 
@@ -2111,10 +2098,8 @@
             id:
               ticket,
 
-
             player_id:
               state.playerId,
-
 
             status:
               "waiting"
@@ -2171,10 +2156,8 @@
                 state.room =
                   row.room_code;
 
-
                 state.role =
                   "host";
-
 
                 state.host =
                   true;
@@ -2193,10 +2176,8 @@
                 send(
                   "signal",
                   {
-
                     role:
                       "host"
-
                   }
                 );
 
@@ -2274,10 +2255,8 @@
 
       this.engine =
         Matter.Engine.create({
-
           enableSleeping:
             false
-
         });
 
 
@@ -2315,42 +2294,30 @@
       this.resize();
 
 
-      window.addEventListener(
-        "resize",
-        () =>
-          this.resize()
-      );
-
-
       this.scores =
         [0, 0];
 
 
       this.currentPuck =
-        Number.isInteger(
-          initialPuck
-        )
+        initialPuck === 0 ||
+        initialPuck === 1
           ? initialPuck
-          : (
-              Math.random() < 0.5
-                ? 0
-                : 1
-            );
+          : 0;
 
 
       this.drawings =
         drawings;
 
 
-      /*
-        HOST = 左
-        GUEST = 右
-      */
-
       this.localSide =
         state.role === "host"
           ? 0
           : 1;
+
+
+      this.roundPause =
+        performance.now() +
+        1000;
 
 
       this.makeArena();
@@ -2370,6 +2337,16 @@
 
       this.last =
         performance.now();
+
+
+      console.log(
+        "[DRAW AIR HOCKEY] GAME START",
+        {
+          host: this.host,
+          localSide: this.localSide,
+          drawings: this.drawings
+        }
+      );
 
 
       requestAnimationFrame(
@@ -2407,10 +2384,8 @@
         isStatic:
           true,
 
-
         restitution:
           1,
-
 
         friction:
           0
@@ -2418,9 +2393,25 @@
       };
 
 
+      const goalH =
+        260;
+
+
+      const goalTop =
+        this.H / 2 -
+        goalH / 2;
+
+
+      const goalBottom =
+        this.H / 2 +
+        goalH / 2;
+
+
       Matter.World.add(
         this.world,
         [
+
+          // 上
 
           Matter.Bodies.rectangle(
             this.W / 2,
@@ -2430,6 +2421,8 @@
             options
           ),
 
+
+          // 下
 
           Matter.Bodies.rectangle(
             this.W / 2,
@@ -2440,20 +2433,54 @@
           ),
 
 
+          // 左上
+
           Matter.Bodies.rectangle(
             -12,
-            this.H / 2,
+            goalTop / 2,
             24,
-            this.H,
+            goalTop,
             options
           ),
 
 
+          // 左下
+
+          Matter.Bodies.rectangle(
+            -12,
+            (
+              goalBottom +
+              this.H
+            ) / 2,
+            24,
+            this.H -
+              goalBottom,
+            options
+          ),
+
+
+          // 右上
+
           Matter.Bodies.rectangle(
             this.W + 12,
-            this.H / 2,
+            goalTop / 2,
             24,
-            this.H,
+            goalTop,
+            options
+          ),
+
+
+          // 右下
+
+          Matter.Bodies.rectangle(
+            this.W + 12,
+            (
+              goalBottom +
+              this.H
+            ) / 2,
+            24,
+            this.H -
+              goalBottom,
             options
           )
 
@@ -2462,7 +2489,7 @@
 
 
       this.goalW =
-        260;
+        goalH;
 
     }
 
@@ -2478,23 +2505,29 @@
 
       const player =
         side === 0
-          ? this.drawings.host
-          : this.drawings.guest;
+          ? this.drawings?.host
+          : this.drawings?.guest;
+
+
+      if (
+        !player
+      ) {
+
+        return null;
+
+      }
 
 
       return (
-        player &&
-        player[type]
-      )
-      || null;
+        player[type] ||
+        null
+      );
 
     }
 
 
     // =======================================================
-    // THICK STROKE
-    //
-    // 描いた線を「太さのある閉じた物理形状」にする
+    // STROKE → PHYSICS SHAPE
     // =======================================================
 
     makeStrokeVertices(
@@ -2523,7 +2556,6 @@
             x:
               p.x * scale,
 
-
             y:
               p.y * scale
 
@@ -2534,22 +2566,15 @@
       const strokeNorm =
         Number(
           drawing.strokeWidthNorm
-        )
-        || 0.025;
+        ) || 0.025;
 
-
-      /*
-        最低4px程度の物理的な太さを確保。
-
-        ただし描画した線の太さも反映する。
-      */
 
       const radius =
         Math.max(
-          3,
+          4,
           strokeNorm *
           scale *
-          0.75
+          0.85
         );
 
 
@@ -2599,20 +2624,19 @@
           previous.y;
 
 
-        const length =
+        const len =
           Math.hypot(
             dx,
             dy
-          )
-          || 1;
+          ) || 1;
 
 
         dx /=
-          length;
+          len;
 
 
         dy /=
-          length;
+          len;
 
 
         const nx =
@@ -2629,7 +2653,6 @@
             current.x +
             nx * radius,
 
-
           y:
             current.y +
             ny * radius
@@ -2643,7 +2666,6 @@
             current.x -
             nx * radius,
 
-
           y:
             current.y -
             ny * radius
@@ -2652,11 +2674,6 @@
 
       }
 
-
-      /*
-        左側を進んで、
-        右側を逆方向に戻って閉じる。
-      */
 
       const vertices =
         left.concat(
@@ -2669,24 +2686,6 @@
       ) {
 
         return null;
-
-      }
-
-
-      /*
-        Matter.js が要求する
-        clockwise order に合わせる。
-      */
-
-      if (
-        Matter.Vertices &&
-        Matter.Vertices.isClockwise &&
-        !Matter.Vertices.isClockwise(
-          vertices
-        )
-      ) {
-
-        vertices.reverse();
 
       }
 
@@ -2708,18 +2707,16 @@
       options = {}
     ) {
 
-      const polygon =
-        drawing?.polygon;
-
-
       let body =
         null;
 
 
       if (
         drawing &&
-        Array.isArray(polygon) &&
-        polygon.length >= 2
+        Array.isArray(
+          drawing.polygon
+        ) &&
+        drawing.polygon.length >= 2
       ) {
 
         const vertices =
@@ -2746,45 +2743,31 @@
                   restitution:
                     1,
 
-
                   friction:
                     0,
-
 
                   frictionStatic:
                     0,
 
-
                   frictionAir:
-                    0.0005,
-
+                    0.0001,
 
                   density:
                     0.001,
 
-
                   ...options
 
                 },
-
-
                 true,
-
-
                 0.005,
-
-
                 1,
-
-
                 0.005
-
               );
 
           } catch (error) {
 
             console.warn(
-              "[DRAW AIR HOCKEY] fromVertices failed:",
+              "[DRAW AIR HOCKEY] fromVertices error",
               error
             );
 
@@ -2795,14 +2778,9 @@
       }
 
 
-      /*
-        物理形状を作れなかった場合だけ
-        円にフォールバック。
-      */
+      // フォールバック
 
-      if (
-        !body
-      ) {
+      if (!body) {
 
         body =
           Matter.Bodies.circle(
@@ -2814,14 +2792,11 @@
               restitution:
                 1,
 
-
               friction:
                 0,
 
-
               frictionAir:
-                0.0005,
-
+                0.0001,
 
               ...options
 
@@ -2830,10 +2805,6 @@
 
       }
 
-
-      /*
-        描画データは物理BODYとは別に保持。
-      */
 
       body.drawData =
         drawing ||
@@ -2849,9 +2820,19 @@
         x:
           0,
 
-
         y:
           0
+
+      };
+
+
+      body._lastSample = {
+
+        x:
+          body.position.x,
+
+        y:
+          body.position.y
 
       };
 
@@ -2866,16 +2847,6 @@
     // =======================================================
 
     makePuck() {
-
-      /*
-        ★ 修正点
-
-        this.drawings[0] ではなく
-
-        host / guest
-
-        から取得する。
-      */
 
       const drawing =
         this.getDrawing(
@@ -2901,17 +2872,17 @@
         this.currentPuck;
 
 
-      /*
-        パックは動的BODY。
-      */
+      this.puck.drawSide =
+        this.currentPuck;
+
+
+      this.puck.drawType =
+        "puck";
+
 
       this.puck.isStatic =
         false;
 
-
-      /*
-        エアホッケーなので摩擦を極小に。
-      */
 
       this.puck.friction =
         0;
@@ -2922,7 +2893,7 @@
 
 
       this.puck.frictionAir =
-        0.0003;
+        0.0001;
 
 
       Matter.World.add(
@@ -2970,20 +2941,11 @@
             105,
             {
 
-              /*
-                マレットは静的BODY。
-
-                実際の反射は下の
-                collisionActive で処理する。
-              */
-
               isStatic:
                 true,
 
-
               restitution:
                 1,
-
 
               friction:
                 0
@@ -3000,6 +2962,14 @@
           i;
 
 
+        body.drawSide =
+          i;
+
+
+        body.drawType =
+          "mallet";
+
+
         body.friction =
           0;
 
@@ -3013,9 +2983,19 @@
           x:
             0,
 
-
           y:
             0
+
+        };
+
+
+        body._lastSample = {
+
+          x:
+            body.position.x,
+
+          y:
+            body.position.y
 
         };
 
@@ -3032,25 +3012,82 @@
       }
 
 
-      /*
-        ローカルマレットの初期位置
-      */
+      this.targetMallet = {
 
-      this.targetMallet =
-        {
+        x:
+          this.mallets[
+            this.localSide
+          ].position.x,
+
+        y:
+          this.mallets[
+            this.localSide
+          ].position.y
+
+      };
+
+    }
+
+
+    // =======================================================
+    // SAMPLE MALLET VELOCITY
+    // =======================================================
+
+    sampleMalletVelocity() {
+
+      for (
+        const mallet of
+        this.mallets
+      ) {
+
+        const old =
+          mallet._lastSample;
+
+
+        const dx =
+          mallet.position.x -
+          old.x;
+
+
+        const dy =
+          mallet.position.y -
+          old.y;
+
+
+        mallet.playerVelocity = {
 
           x:
-            this.mallets[
-              this.localSide
-            ].position.x,
-
+            Math.max(
+              -30,
+              Math.min(
+                30,
+                dx
+              )
+            ),
 
           y:
-            this.mallets[
-              this.localSide
-            ].position.y
+            Math.max(
+              -30,
+              Math.min(
+                30,
+                dy
+              )
+            )
 
         };
+
+
+        mallet._lastSample = {
+
+          x:
+            mallet.position.x,
+
+          y:
+            mallet.position.y
+
+        };
+
+      }
 
     }
 
@@ -3075,11 +3112,11 @@
             const pair of event.pairs
           ) {
 
-            const bodyA =
+            const a =
               pair.collision.parentA;
 
 
-            const bodyB =
+            const b =
               pair.collision.parentB;
 
 
@@ -3092,44 +3129,37 @@
 
 
             if (
-              bodyA &&
-              bodyB
+              a?.label === "puck" &&
+              String(
+                b?.label || ""
+              ).startsWith(
+                "mallet"
+              )
             ) {
 
-              if (
-                bodyA.label === "puck" &&
-                String(
-                  bodyB.label
-                ).startsWith(
-                  "mallet"
-                )
-              ) {
+              puck =
+                a;
 
-                puck =
-                  bodyA;
+              mallet =
+                b;
 
-                mallet =
-                  bodyB;
-
-              }
+            }
 
 
-              if (
-                bodyB.label === "puck" &&
-                String(
-                  bodyA.label
-                ).startsWith(
-                  "mallet"
-                )
-              ) {
+            else if (
+              b?.label === "puck" &&
+              String(
+                a?.label || ""
+              ).startsWith(
+                "mallet"
+              )
+            ) {
 
-                puck =
-                  bodyB;
+              puck =
+                b;
 
-                mallet =
-                  bodyA;
-
-              }
+              mallet =
+                a;
 
             }
 
@@ -3159,7 +3189,7 @@
 
 
     // =======================================================
-    // MALLET COLLISION RESPONSE
+    // MALLET COLLISION
     // =======================================================
 
     handleMalletCollision(
@@ -3172,26 +3202,16 @@
         performance.now();
 
 
-      const key =
-        mallet.id;
-
-
       const previous =
         this.collisionCooldown.get(
-          key
-        )
-        || 0;
+          mallet.id
+        ) || 0;
 
-
-      /*
-        同じ接触で毎フレーム
-        何度も跳ねさせない。
-      */
 
       if (
         now -
         previous <
-        70
+        55
       ) {
 
         return;
@@ -3199,19 +3219,10 @@
       }
 
 
-      this.collisionCooldown.set(
-        key,
-        now
-      );
-
-
       /*
-        collision.normal は
-        A → B の方向なので、
-
-        「マレットからパックへ」
-
-        の方向に変換する。
+        Matter の法線を
+        マレット → パック
+        に統一
       */
 
       let nx =
@@ -3230,17 +3241,11 @@
         nx =
           -nx;
 
-
         ny =
           -ny;
 
       }
 
-
-      /*
-        念のため、
-        本当にマレット→パック方向か確認。
-      */
 
       const centerDx =
         puck.position.x -
@@ -3261,14 +3266,13 @@
         nx =
           -nx;
 
-
         ny =
           -ny;
 
       }
 
 
-      const malletVelocity =
+      const mv =
         mallet.playerVelocity ||
         {
           x: 0,
@@ -3277,35 +3281,43 @@
 
 
       /*
-        パックとマレットの相対速度。
+        パック速度
+        - マレット速度
       */
 
-      const relativeVelocity = {
-
-        x:
-          puck.velocity.x -
-          malletVelocity.x,
+      const rvx =
+        puck.velocity.x -
+        mv.x;
 
 
-        y:
-          puck.velocity.y -
-          malletVelocity.y
-
-      };
+      const rvy =
+        puck.velocity.y -
+        mv.y;
 
 
       const approach =
-        relativeVelocity.x * nx +
-        relativeVelocity.y * ny;
+        rvx * nx +
+        rvy * ny;
 
 
       /*
-        すでに外側へ逃げている場合は
-        もう一度反射させない。
+        外へ向かっているだけなら
+        二重反射しない。
+
+        ただしマレットを動かしている
+        場合は打撃として処理する。
       */
 
+      const malletSpeed =
+        Math.hypot(
+          mv.x,
+          mv.y
+        );
+
+
       if (
-        approach > 0
+        approach > 0 &&
+        malletSpeed < 1
       ) {
 
         return;
@@ -3314,70 +3326,55 @@
 
 
       /*
-        相対速度を法線に対して反射。
-
-        これが「描いた形状の面によって
-        跳ね返る角度が変わる」部分。
+        法線反射
       */
 
-      let reflected = {
-
-        x:
-          relativeVelocity.x -
-          2 *
-          approach *
-          nx,
+      let vx =
+        rvx -
+        2 *
+        approach *
+        nx;
 
 
-        y:
-          relativeVelocity.y -
-          2 *
-          approach *
-          ny
-
-      };
+      let vy =
+        rvy -
+        2 *
+        approach *
+        ny;
 
 
       /*
-        マレット自身の移動速度を加える。
-
-        速く振って当てるほど
-        パックが強く飛ぶ。
+        マレットの移動速度を
+        パックに伝える。
       */
 
-      reflected.x +=
-        malletVelocity.x *
-        0.65;
+      vx +=
+        mv.x *
+        0.85;
 
 
-      reflected.y +=
-        malletVelocity.y *
-        0.65;
+      vy +=
+        mv.y *
+        0.85;
 
 
       /*
-        反射後の速度。
+        速度が弱すぎる場合、
+        法線方向へ最低速度を与える。
       */
 
       let speed =
         Math.hypot(
-          reflected.x,
-          reflected.y
+          vx,
+          vy
         );
 
 
-      /*
-        遅い衝突でもパックが止まらないようにする。
-      */
-
       const minimumSpeed =
         Math.max(
-          6.5,
-          Math.hypot(
-            malletVelocity.x,
-            malletVelocity.y
-          ) *
-          0.45
+          8,
+          malletSpeed *
+          0.7
         );
 
 
@@ -3386,28 +3383,37 @@
         minimumSpeed
       ) {
 
-        reflected.x =
+        vx +=
           nx *
-          minimumSpeed;
+          (
+            minimumSpeed -
+            speed
+          );
 
 
-        reflected.y =
+        vy +=
           ny *
-          minimumSpeed;
+          (
+            minimumSpeed -
+            speed
+          );
 
 
         speed =
-          minimumSpeed;
+          Math.hypot(
+            vx,
+            vy
+          );
 
       }
 
 
       /*
-        あまりに速くなりすぎないよう制限。
+        最大速度
       */
 
       const maximumSpeed =
-        24;
+        28;
 
 
       if (
@@ -3420,19 +3426,18 @@
           speed;
 
 
-        reflected.x *=
+        vx *=
           ratio;
 
 
-        reflected.y *=
+        vy *=
           ratio;
 
       }
 
 
       /*
-        少しだけ押し出して
-        めり込みによる停止を防ぐ。
+        パックを少し押し出す。
       */
 
       Matter.Body.setPosition(
@@ -3441,25 +3446,32 @@
 
           x:
             puck.position.x +
-            nx * 2,
-
+            nx * 3,
 
           y:
             puck.position.y +
-            ny * 2
+            ny * 3
 
-        }
+        },
+        false
       );
 
 
       Matter.Body.setVelocity(
         puck,
-        reflected
+        {
+          x:
+            vx,
+
+          y:
+            vy
+        }
       );
 
 
       /*
-        形状による回転も少し反映。
+        打った方向によって
+        少し回転させる。
       */
 
       const tangentX =
@@ -3470,16 +3482,22 @@
         nx;
 
 
-      const tangentSpeed =
-        malletVelocity.x *
+      const tangent =
+        mv.x *
           tangentX +
-        malletVelocity.y *
+        mv.y *
           tangentY;
 
 
-      puck.angularVelocity +=
-        tangentSpeed *
-        0.002;
+      puck.angularVelocity =
+        tangent *
+        0.004;
+
+
+      this.collisionCooldown.set(
+        mallet.id,
+        now
+      );
 
     }
 
@@ -3489,7 +3507,8 @@
     // =======================================================
 
     resetPuck(
-      nextPlayer
+      nextPlayer,
+      velocity = null
     ) {
 
       if (this.puck) {
@@ -3503,7 +3522,10 @@
 
 
       this.currentPuck =
-        nextPlayer;
+        nextPlayer === 0 ||
+        nextPlayer === 1
+          ? nextPlayer
+          : 0;
 
 
       this.makePuck();
@@ -3516,7 +3538,6 @@
           x:
             this.W / 2,
 
-
           y:
             this.H / 2
 
@@ -3524,9 +3545,8 @@
       );
 
 
-      Matter.Body.setVelocity(
-        this.puck,
-        {
+      const launch =
+        velocity || {
 
           x:
             (
@@ -3534,18 +3554,20 @@
               0.5
                 ? -1
                 : 1
-            ) *
-            7,
-
+            ) * 7,
 
           y:
             (
               Math.random() -
               0.5
-            ) *
-            5
+            ) * 5
 
-        }
+        };
+
+
+      Matter.Body.setVelocity(
+        this.puck,
+        launch
       );
 
 
@@ -3611,9 +3633,35 @@
       }
 
 
-      this.resetPuck(
+      const nextPlayer =
         1 -
-        this.currentPuck
+        this.currentPuck;
+
+
+      const vx =
+        (
+          Math.random() <
+          0.5
+            ? -1
+            : 1
+        ) * 7;
+
+
+      const vy =
+        (
+          Math.random() -
+          0.5
+        ) * 5;
+
+
+      this.resetPuck(
+        nextPlayer,
+        {
+          x:
+            vx,
+          y:
+            vy
+        }
       );
 
 
@@ -3624,9 +3672,17 @@
           scores:
             this.scores,
 
-
           currentPuck:
-            this.currentPuck
+            this.currentPuck,
+
+          velocity:
+            {
+              x:
+                vx,
+
+              y:
+                vy
+            }
 
         }
       );
@@ -3666,10 +3722,8 @@
           final:
             true,
 
-
           scores:
             this.scores,
-
 
           winner:
             side
@@ -3681,7 +3735,7 @@
 
 
     // =======================================================
-    // REMOTE GAME STATE
+    // REMOTE STATE
     // =======================================================
 
     applyRemote(
@@ -3721,16 +3775,16 @@
 
 
       /*
-        パックの持ち主が変わった場合、
-        ゲスト側の描画も同期。
+        パックの種類変更
       */
 
       if (
-        Number.isInteger(
-          payload.currentPuck
+        (
+          payload.currentPuck === 0 ||
+          payload.currentPuck === 1
         ) &&
         payload.currentPuck !==
-          this.currentPuck
+        this.currentPuck
       ) {
 
         this.resetPuckVisualOnly(
@@ -3741,12 +3795,14 @@
 
 
       if (
-        payload.puck
+        payload.puck &&
+        this.puck
       ) {
 
         Matter.Body.setPosition(
           this.puck,
-          payload.puck.pos
+          payload.puck.pos,
+          false
         );
 
 
@@ -3765,12 +3821,14 @@
 
 
       /*
-        ゲスト側では
-        相手＝ホストのマレットだけ同期。
+        ホストマレットを
+        ゲスト側へ同期
       */
 
       if (
-        payload.mallets
+        Array.isArray(
+          payload.mallets
+        )
       ) {
 
         for (
@@ -3780,59 +3838,70 @@
         ) {
 
           if (
-            payload.mallets[i] &&
-            i !== this.localSide
+            i === this.localSide
           ) {
 
-            const body =
-              this.mallets[i];
-
-
-            const oldX =
-              body.position.x;
-
-
-            const oldY =
-              body.position.y;
-
-
-            const newX =
-              payload.mallets[i].x;
-
-
-            const newY =
-              payload.mallets[i].y;
-
-
-            body.playerVelocity = {
-
-              x:
-                newX -
-                oldX,
-
-
-              y:
-                newY -
-                oldY
-
-            };
-
-
-            Matter.Body.setPosition(
-              body,
-              {
-
-                x:
-                  newX,
-
-
-                y:
-                  newY
-
-              }
-            );
+            continue;
 
           }
+
+
+          const remote =
+            payload.mallets[i];
+
+
+          if (!remote) {
+            continue;
+          }
+
+
+          const body =
+            this.mallets[i];
+
+
+          const dx =
+            remote.x -
+            body.position.x;
+
+
+          const dy =
+            remote.y -
+            body.position.y;
+
+
+          body.playerVelocity = {
+
+            x:
+              dx,
+
+            y:
+              dy
+
+          };
+
+
+          Matter.Body.setPosition(
+            body,
+            {
+              x:
+                remote.x,
+
+              y:
+                remote.y
+            },
+            false
+          );
+
+
+          body._lastSample = {
+
+            x:
+              remote.x,
+
+            y:
+              remote.y
+
+          };
 
         }
 
@@ -3840,7 +3909,9 @@
 
 
       if (
-        payload.scores
+        Array.isArray(
+          payload.scores
+        )
       ) {
 
         this.scores =
@@ -3886,6 +3957,10 @@
         );
 
 
+      /*
+        ゲストは右側
+      */
+
       if (
         side !== 1
       ) {
@@ -3896,11 +3971,33 @@
 
 
       const body =
-        this.mallets[side];
+        this.mallets[1];
 
 
       if (!body) {
         return;
+      }
+
+
+      const x =
+        Number(
+          payload.position.x
+        );
+
+
+      const y =
+        Number(
+          payload.position.y
+        );
+
+
+      if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y)
+      ) {
+
+        return;
+
       }
 
 
@@ -3912,23 +4009,14 @@
         body.position.y;
 
 
-      const newX =
-        payload.position.x;
-
-
-      const newY =
-        payload.position.y;
-
-
       body.playerVelocity = {
 
         x:
-          newX -
+          x -
           oldX,
 
-
         y:
-          newY -
+          y -
           oldY
 
       };
@@ -3937,16 +4025,25 @@
       Matter.Body.setPosition(
         body,
         {
-
           x:
-            newX,
-
+            x,
 
           y:
-            newY
-
-        }
+            y
+        },
+        false
       );
+
+
+      body._lastSample = {
+
+        x:
+          x,
+
+        y:
+          y
+
+      };
 
     }
 
@@ -3965,7 +4062,11 @@
 
 
       this.scores =
-        payload.scores;
+        Array.isArray(
+          payload.scores
+        )
+          ? payload.scores
+          : [0, 0];
 
 
       setText(
@@ -3981,7 +4082,8 @@
 
 
       this.resetPuck(
-        payload.currentPuck
+        payload.currentPuck,
+        payload.velocity || null
       );
 
     }
@@ -3995,10 +4097,14 @@
       nextPlayer
     ) {
 
-      Matter.World.remove(
-        this.world,
-        this.puck
-      );
+      if (this.puck) {
+
+        Matter.World.remove(
+          this.world,
+          this.puck
+        );
+
+      }
 
 
       this.currentPuck =
@@ -4020,20 +4126,57 @@
         this.canvas;
 
 
+      canvas.style.touchAction =
+        "none";
+
+
       let dragging =
         false;
+
+
+      let activePointerId =
+        null;
 
 
       const move =
         event => {
 
-          if (!dragging) {
+          if (
+            !dragging
+          ) {
+
             return;
+
           }
+
+
+          if (
+            activePointerId !== null &&
+            event.pointerId !== undefined &&
+            event.pointerId !==
+              activePointerId
+          ) {
+
+            return;
+
+          }
+
+
+          event.preventDefault();
 
 
           const rect =
             canvas.getBoundingClientRect();
+
+
+          if (
+            rect.width <= 0 ||
+            rect.height <= 0
+          ) {
+
+            return;
+
+          }
 
 
           const x =
@@ -4042,8 +4185,7 @@
               rect.left
             )
             *
-            this.W
-            /
+            this.W /
             rect.width;
 
 
@@ -4053,8 +4195,7 @@
               rect.top
             )
             *
-            this.H
-            /
+            this.H /
             rect.height;
 
 
@@ -4064,14 +4205,14 @@
 
           const minX =
             side === 0
-              ? 40
-              : this.W / 2 + 40;
+              ? 45
+              : this.W / 2 + 45;
 
 
           const maxX =
             side === 0
-              ? this.W / 2 - 40
-              : this.W - 40;
+              ? this.W / 2 - 45
+              : this.W - 45;
 
 
           const clampedX =
@@ -4098,59 +4239,21 @@
             this.mallets[side];
 
 
-          const dx =
-            clampedX -
-            body.position.x;
-
-
-          const dy =
-            clampedY -
-            body.position.y;
-
-
-          /*
-            マレットの移動速度を保存。
-
-            これがパックへの
-            「打撃力」になる。
-          */
-
-          body.playerVelocity = {
-
-            x:
-              Math.max(
-                -25,
-                Math.min(
-                  25,
-                  dx
-                )
-              ),
-
-
-            y:
-              Math.max(
-                -25,
-                Math.min(
-                  25,
-                  dy
-                )
-              )
-
-          };
+          if (!body) {
+            return;
+          }
 
 
           Matter.Body.setPosition(
             body,
             {
-
               x:
                 clampedX,
 
-
               y:
                 clampedY
-
-            }
+            },
+            false
           );
 
 
@@ -4158,7 +4261,6 @@
 
             x:
               clampedX,
-
 
             y:
               clampedY
@@ -4168,16 +4270,19 @@
         };
 
 
-      canvas.onpointerdown =
+      const start =
         event => {
+
+          event.preventDefault();
+
 
           dragging =
             true;
 
 
-          move(
-            event
-          );
+          activePointerId =
+            event.pointerId ??
+            null;
 
 
           try {
@@ -4188,29 +4293,109 @@
 
           } catch (_) {}
 
+
+          move(
+            event
+          );
+
         };
 
 
-      canvas.onpointermove =
-        move;
+      const end =
+        event => {
 
+          if (
+            event &&
+            activePointerId !== null &&
+            event.pointerId !== undefined &&
+            event.pointerId !==
+              activePointerId
+          ) {
 
-      canvas.onpointerup =
-        () => {
+            return;
+
+          }
+
 
           dragging =
             false;
 
-        };
 
-
-      canvas.onpointercancel =
-        () => {
-
-          dragging =
-            false;
+          activePointerId =
+            null;
 
         };
+
+
+      canvas.addEventListener(
+        "pointerdown",
+        start,
+        {
+          passive:
+            false
+        }
+      );
+
+
+      canvas.addEventListener(
+        "pointermove",
+        move,
+        {
+          passive:
+            false
+        }
+      );
+
+
+      canvas.addEventListener(
+        "pointerup",
+        end
+      );
+
+
+      canvas.addEventListener(
+        "pointercancel",
+        end
+      );
+
+
+      /*
+        pointer capture が外れても
+        ドラッグを継続できるようにする。
+      */
+
+      window.addEventListener(
+        "pointermove",
+        event => {
+
+          if (
+            dragging
+          ) {
+
+            move(
+              event
+            );
+
+          }
+
+        },
+        {
+          passive:
+            false
+        }
+      );
+
+
+      window.addEventListener(
+        "pointerup",
+        end
+      );
+
+
+      window.addEventListener(
+        "pointercancel",
+        end
+      );
 
     }
 
@@ -4223,16 +4408,23 @@
       time
     ) {
 
-      if (!state.running) {
+      if (
+        !state.running
+      ) {
+
         return;
+
       }
 
 
       const dt =
         Math.min(
           32,
-          time -
-          this.last
+          Math.max(
+            1,
+            time -
+            this.last
+          )
         );
 
 
@@ -4240,11 +4432,20 @@
         time;
 
 
+      /*
+        マレット移動速度を計測
+      */
+
+      this.sampleMalletVelocity();
+
+
       // =====================================================
       // HOST PHYSICS
       // =====================================================
 
-      if (this.host) {
+      if (
+        this.host
+      ) {
 
         if (
           !this.roundPause ||
@@ -4264,11 +4465,13 @@
           this.puck.position.x;
 
 
-        // 左ゴール
+        /*
+          左ゴール
+        */
 
         if (
           x <
-          -25
+          -30
         ) {
 
           this.score(
@@ -4281,12 +4484,14 @@
         }
 
 
-        // 右ゴール
+        /*
+          右ゴール
+        */
 
         if (
           x >
           this.W +
-          25
+          30
         ) {
 
           this.score(
@@ -4300,30 +4505,85 @@
 
 
         /*
-          上下壁から外れないように補正。
+          上下壁の安全補正
         */
 
         if (
           this.puck.position.y <
-            30 ||
-          this.puck.position.y >
-            this.H -
-            30
+            25
         ) {
 
-          Matter.Body.setVelocity(
+          Matter.Body.setPosition(
             this.puck,
             {
-
               x:
-                this.puck.velocity.x,
-
+                this.puck.position.x,
 
               y:
-                -this.puck.velocity.y
-
-            }
+                25
+            },
+            false
           );
+
+
+          if (
+            this.puck.velocity.y <
+            0
+          ) {
+
+            Matter.Body.setVelocity(
+              this.puck,
+              {
+                x:
+                  this.puck.velocity.x,
+
+                y:
+                  -this.puck.velocity.y
+              }
+            );
+
+          }
+
+        }
+
+
+        if (
+          this.puck.position.y >
+            this.H -
+            25
+        ) {
+
+          Matter.Body.setPosition(
+            this.puck,
+            {
+              x:
+                this.puck.position.x,
+
+              y:
+                this.H -
+                  25
+            },
+            false
+          );
+
+
+          if (
+            this.puck.velocity.y >
+            0
+          ) {
+
+            Matter.Body.setVelocity(
+              this.puck,
+              {
+                x:
+                  this.puck.velocity.x,
+
+                y:
+                  -this.puck.velocity.y
+              }
+            );
+
+          }
 
         }
 
@@ -4335,7 +4595,7 @@
         if (
           time -
           this.lastSend >
-          30
+          25
         ) {
 
           send(
@@ -4345,12 +4605,22 @@
               puck: {
 
                 pos:
-                  this.puck.position,
+                  {
+                    x:
+                      this.puck.position.x,
 
+                    y:
+                      this.puck.position.y
+                  },
 
                 vel:
-                  this.puck.velocity,
+                  {
+                    x:
+                      this.puck.velocity.x,
 
+                    y:
+                      this.puck.velocity.y
+                  },
 
                 angle:
                   this.puck.angle
@@ -4360,8 +4630,15 @@
 
               mallets:
                 this.mallets.map(
-                  mallet =>
-                    mallet.position
+                  mallet => ({
+
+                    x:
+                      mallet.position.x,
+
+                    y:
+                      mallet.position.y
+
+                  })
                 ),
 
 
@@ -4385,14 +4662,14 @@
 
 
       // =====================================================
-      // GUEST SENDS MALLET INPUT
+      // GUEST SEND MALLET
       // =====================================================
 
       if (
         !this.host &&
         time -
         this.lastInputSend >
-        30
+        25
       ) {
 
         const mallet =
@@ -4401,43 +4678,34 @@
           ];
 
 
-        send(
-          "input",
-          {
+        if (mallet) {
 
-            side:
-              this.localSide,
+          send(
+            "input",
+            {
 
+              side:
+                this.localSide,
 
-            position:
-              mallet.position
+              position:
+                {
+                  x:
+                    mallet.position.x,
 
-          }
-        );
+                  y:
+                    mallet.position.y
+                }
+
+            }
+          );
+
+        }
 
 
         this.lastInputSend =
           time;
 
       }
-
-
-      // =====================================================
-      // DECAY MALLET VELOCITY
-      // =====================================================
-
-      this.mallets.forEach(
-        mallet => {
-
-          mallet.playerVelocity.x *=
-            0.82;
-
-
-          mallet.playerVelocity.y *=
-            0.82;
-
-        }
-      );
 
 
       // =====================================================
@@ -4502,10 +4770,8 @@
       c.strokeRect(
         10,
         10,
-        this.W -
-          20,
-        this.H -
-          20
+        this.W - 20,
+        this.H - 20
       );
 
 
@@ -4522,8 +4788,7 @@
 
       c.lineTo(
         this.W / 2,
-        this.H -
-          10
+        this.H - 10
       );
 
 
@@ -4555,18 +4820,15 @@
 
       c.fillRect(
         0,
-        this.H / 2 -
-          130,
+        this.H / 2 - 130,
         18,
         260
       );
 
 
       c.fillRect(
-        this.W -
-          18,
-        this.H / 2 -
-          130,
+        this.W - 18,
+        this.H / 2 - 130,
         18,
         260
       );
@@ -4602,15 +4864,53 @@
       body
     ) {
 
-      const drawing =
-        body.drawData;
-
-
       const c =
         this.ctx;
 
 
-      if (!drawing) {
+      /*
+        ★ 重要
+
+        body.drawDataだけを信用しない。
+
+        body.drawSide / drawType から
+        現在の描画データを直接取得する。
+      */
+
+      let drawing =
+        body.drawData;
+
+
+      if (
+        body.drawType &&
+        (
+          body.drawSide === 0 ||
+          body.drawSide === 1
+        )
+      ) {
+
+        drawing =
+          this.getDrawing(
+            body.drawSide,
+            body.drawType
+          ) ||
+          drawing;
+
+      }
+
+
+      if (
+        !drawing ||
+        !Array.isArray(
+          drawing.polygon
+        ) ||
+        drawing.polygon.length < 2
+      ) {
+
+        /*
+          本当に描画データがない場合のみ
+          円を表示。
+        */
 
         c.save();
 
@@ -4618,6 +4918,11 @@
         c.translate(
           body.position.x,
           body.position.y
+        );
+
+
+        c.rotate(
+          body.angle
         );
 
 
@@ -4656,17 +4961,6 @@
         drawing.polygon;
 
 
-      if (
-        !polygon ||
-        polygon.length <
-        2
-      ) {
-
-        return;
-
-      }
-
-
       c.save();
 
 
@@ -4688,7 +4982,6 @@
         polygon[0].x *
           body.drawScale,
 
-
         polygon[0].y *
           body.drawScale
       );
@@ -4704,7 +4997,6 @@
           polygon[i].x *
             body.drawScale,
 
-
           polygon[i].y *
             body.drawScale
         );
@@ -4713,10 +5005,10 @@
 
 
       /*
-        今まで通り
+        描いた線をそのまま表示。
 
-        ・塗りつぶさない
-        ・勝手に閉じない
+        勝手に閉じない。
+        塗りつぶさない。
       */
 
       c.strokeStyle =
@@ -4785,6 +5077,11 @@
       );
 
 
+      msg(
+        "描画データの同期に失敗しました。"
+      );
+
+
       return;
 
     }
@@ -4793,12 +5090,23 @@
     try {
 
       /*
-        ★ 重要
-
-        AirGame が constructor 内で
-        requestAnimationFrame を開始するので、
-        running を先に true にする。
+        drawing data確認
       */
+
+      console.log(
+        "[DRAW AIR HOCKEY] START DRAWINGS",
+        {
+          host:
+            drawings.host,
+
+          guest:
+            drawings.guest,
+
+          currentPuck:
+            initialPuck
+        }
+      );
+
 
       state.running =
         true;
@@ -4812,6 +5120,10 @@
         );
 
 
+      /*
+        先にゲーム画面を表示
+      */
+
       show(
         "game"
       );
@@ -4824,36 +5136,49 @@
 
 
       /*
-        最初のパックだけ
-        ホストが打ち出す。
+        ホストだけ最初のパックを発射
       */
 
       if (
         state.host
       ) {
 
-        Matter.Body.setVelocity(
-          state.game.puck,
-          {
+        setTimeout(
+          () => {
 
-            x:
-              (
-                Math.random() <
-                0.5
-                  ? -1
-                  : 1
-              ) *
-              7,
+            if (
+              !state.game ||
+              !state.running
+            ) {
+
+              return;
+
+            }
 
 
-            y:
-              (
-                Math.random() -
-                0.5
-              ) *
-              5
+            Matter.Body.setVelocity(
+              state.game.puck,
+              {
 
-          }
+                x:
+                  (
+                    Math.random() <
+                    0.5
+                      ? -1
+                      : 1
+                  ) * 7,
+
+                y:
+                  (
+                    Math.random() -
+                    0.5
+                  ) * 5
+
+              }
+            );
+
+          },
+          1000
         );
 
       }
@@ -4939,56 +5264,17 @@
 
 
         /*
-          HOSTがすでに相手のREADYを
-          受け取っていた場合。
+          先に相手がREADYしていた場合
         */
 
         if (
           state.host &&
-          state.opponent?.ready
+          state.opponent?.ready &&
+          state.opponent?.drawings
         ) {
 
-          const drawings = {
-
-            host:
-              state.drawings,
-
-
-            guest:
-              state.opponent.drawings
-
-          };
-
-
-          const currentPuck =
-            Math.random() <
-            0.5
-              ? 0
-              : 1;
-
-
-          send(
-            "start",
-            {
-
-              drawings:
-                drawings,
-
-
-              currentPuck:
-                currentPuck,
-
-
-              seed:
-                Math.random()
-
-            }
-          );
-
-
-          startGame(
-            drawings,
-            currentPuck
+          startMatch(
+            state.opponent.drawings
           );
 
         }
