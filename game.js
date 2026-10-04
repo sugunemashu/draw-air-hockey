@@ -233,11 +233,22 @@
       );
 
 
+    // -------------------------------------------------------
+    // DRAWING STATE
+    //
+    // strokes = 完成した線を全部保存
+    // points  = 現在描いている線
+    // -------------------------------------------------------
+
     let drawing =
       false;
 
 
     let points =
+      [];
+
+
+    let strokes =
       [];
 
 
@@ -280,21 +291,243 @@
 
 
     // -------------------------------------------------------
-    // PREVIEW
+    // GET ALL POINTS
+    //
+    // 全ストロークをまとめて取得
     // -------------------------------------------------------
 
-    function drawPreview() {
+    function getAllPoints() {
 
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
+      const all = [];
+
+
+      for (
+        const stroke of strokes
+      ) {
+
+        if (
+          Array.isArray(
+            stroke.points
+          )
+        ) {
+
+          all.push(
+            ...stroke.points
+          );
+
+        }
+
+      }
 
 
       if (
-        points.length === 0
+        points.length > 0
+      ) {
+
+        all.push(
+          ...points
+        );
+
+      }
+
+
+      return all;
+
+    }
+
+
+    // -------------------------------------------------------
+    // BUILD DRAWING DATA
+    //
+    // 全ストロークを1つの描画データとして作る
+    // -------------------------------------------------------
+
+    function buildDrawing() {
+
+      const allPoints =
+        getAllPoints();
+
+
+      if (
+        allPoints.length === 0
+      ) {
+
+        return null;
+
+      }
+
+
+      // -----------------------------------------------------
+      // 全ストローク共通のバウンディングボックス
+      //
+      // ここが重要。
+      //
+      // 各線を別々に正規化すると、
+      // 目・口などが全部中央に集まってしまう。
+      //
+      // 全体を一つの座標系で正規化する。
+      // -----------------------------------------------------
+
+      const minX =
+        Math.min(
+          ...allPoints.map(
+            p => p.x
+          )
+        );
+
+
+      const maxX =
+        Math.max(
+          ...allPoints.map(
+            p => p.x
+          )
+        );
+
+
+      const minY =
+        Math.min(
+          ...allPoints.map(
+            p => p.y
+          )
+        );
+
+
+      const maxY =
+        Math.max(
+          ...allPoints.map(
+            p => p.y
+          )
+        );
+
+
+      const centerX =
+        (minX + maxX) / 2;
+
+
+      const centerY =
+        (minY + maxY) / 2;
+
+
+      const scale =
+        Math.max(
+          maxX - minX,
+          maxY - minY
+        ) || 1;
+
+
+      // -----------------------------------------------------
+      // 各ストロークを正規化
+      // -----------------------------------------------------
+
+      const normalizedStrokes =
+        strokes.map(
+          stroke => {
+
+            const polygon =
+              stroke.points.map(
+                point => ({
+
+                  x:
+                    (
+                      point.x -
+                      centerX
+                    ) /
+                    scale,
+
+                  y:
+                    (
+                      point.y -
+                      centerY
+                    ) /
+                    scale
+
+                })
+              );
+
+
+            return {
+
+              polygon:
+
+                polygon,
+
+              color:
+                stroke.color,
+
+              width:
+                stroke.width,
+
+              strokeWidthNorm:
+                stroke.width /
+                scale
+
+            };
+
+          }
+        );
+
+
+      if (
+        normalizedStrokes.length === 0
+      ) {
+
+        return null;
+
+      }
+
+
+      return {
+
+        // 新方式
+        strokes:
+          normalizedStrokes,
+
+        // ---------------------------------------------------
+        // 旧コード互換
+        //
+        // 他の場所で polygon を参照しても
+        // 壊れないように残す。
+        // ---------------------------------------------------
+
+        polygon:
+          normalizedStrokes[0].polygon,
+
+        color:
+          normalizedStrokes[0].color,
+
+        width:
+          normalizedStrokes[0].width,
+
+        sourceWidth:
+          canvas.width,
+
+        sourceHeight:
+          canvas.height,
+
+        strokeWidthNorm:
+          normalizedStrokes[0]
+            .strokeWidthNorm
+
+      };
+
+    }
+
+
+    // -------------------------------------------------------
+    // DRAW ONE STROKE
+    // -------------------------------------------------------
+
+    function drawStroke(
+      stroke,
+      preview = false
+    ) {
+
+      if (
+        !stroke ||
+        !Array.isArray(
+          stroke.points
+        ) ||
+        stroke.points.length === 0
       ) {
 
         return;
@@ -302,35 +535,90 @@
       }
 
 
+      const strokeColor =
+        stroke.color ||
+        currentColor;
+
+
+      const strokeWidth =
+        Number(
+          stroke.width ||
+          currentWidth
+        );
+
+
+      // -----------------------------------------------------
+      // 1点
+      // -----------------------------------------------------
+
+      if (
+        stroke.points.length === 1
+      ) {
+
+        const point =
+          stroke.points[0];
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+          point.x,
+          point.y,
+          Math.max(
+            1,
+            strokeWidth / 2
+          ),
+          0,
+          Math.PI * 2
+        );
+
+
+        ctx.fillStyle =
+          strokeColor;
+
+
+        ctx.fill();
+
+
+        return;
+
+      }
+
+
+      // -----------------------------------------------------
+      // 通常の線
+      // -----------------------------------------------------
+
       ctx.beginPath();
 
 
       ctx.moveTo(
-        points[0].x,
-        points[0].y
+        stroke.points[0].x,
+        stroke.points[0].y
       );
 
 
       for (
         let i = 1;
-        i < points.length;
+        i < stroke.points.length;
         i++
       ) {
 
         ctx.lineTo(
-          points[i].x,
-          points[i].y
+          stroke.points[i].x,
+          stroke.points[i].y
         );
 
       }
 
 
       ctx.strokeStyle =
-        currentColor;
+        strokeColor;
 
 
       ctx.lineWidth =
-        currentWidth;
+        strokeWidth;
 
 
       ctx.lineCap =
@@ -347,6 +635,64 @@
 
 
     // -------------------------------------------------------
+    // PREVIEW
+    //
+    // 過去のストローク + 現在描いているストロークを
+    // 毎回全部描き直す
+    // -------------------------------------------------------
+
+    function drawPreview() {
+
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+      // -----------------------------------------------------
+      // 完成済みストローク
+      // -----------------------------------------------------
+
+      for (
+        const stroke of strokes
+      ) {
+
+        drawStroke(
+          stroke
+        );
+
+      }
+
+
+      // -----------------------------------------------------
+      // 現在描いているストローク
+      // -----------------------------------------------------
+
+      if (
+        points.length > 0
+      ) {
+
+        drawStroke({
+
+          points:
+            points,
+
+          color:
+            currentColor,
+
+          width:
+            currentWidth
+
+        }, true);
+
+      }
+
+    }
+
+
+    // -------------------------------------------------------
     // DOWN
     // -------------------------------------------------------
 
@@ -358,6 +704,17 @@
       drawing =
         true;
 
+
+      // -----------------------------------------------------
+      // ここでは strokes を消さない
+      //
+      // 以前は
+      // points = [getPosition(e)]
+      // のあと、前のデータを上書きしていた。
+      //
+      // 今回は points は「今描いている1本」だけ。
+      // strokes に過去の線を全部残す。
+      // -----------------------------------------------------
 
       points = [
         getPosition(e)
@@ -392,9 +749,33 @@
       e.preventDefault();
 
 
-      points.push(
-        getPosition(e)
-      );
+      const position =
+        getPosition(e);
+
+
+      // -----------------------------------------------------
+      // 同じ場所の大量追加を少し抑える
+      // -----------------------------------------------------
+
+      const last =
+        points[
+          points.length - 1
+        ];
+
+
+      if (
+        !last ||
+        Math.hypot(
+          position.x - last.x,
+          position.y - last.y
+        ) >= 1
+      ) {
+
+        points.push(
+          position
+        );
+
+      }
 
 
       drawPreview();
@@ -417,49 +798,45 @@
         false;
 
 
+      // -----------------------------------------------------
+      // 1点でも保存する
+      //
+      // 「点」を描けるようにする。
+      // -----------------------------------------------------
+
       if (
-        points.length < 2
+        points.length > 0
       ) {
 
-        return;
+        strokes.push({
+
+          points:
+            points.slice(),
+
+          color:
+            currentColor,
+
+          width:
+            currentWidth
+
+        });
 
       }
 
 
-      const polygon =
-        normalizePolygon(
-          points
-        );
+      // 現在ストロークを空にする
+      points = [];
 
 
-      const normalizationScale =
-        getNormalizationScale(
-          points
-        );
+      // -----------------------------------------------------
+      // 全ストロークから描画データを再構築
+      // -----------------------------------------------------
+
+      state.drawings[key] =
+        buildDrawing();
 
 
-      state.drawings[key] = {
-
-        polygon:
-          polygon,
-
-        color:
-          currentColor,
-
-        width:
-          currentWidth,
-
-        sourceWidth:
-          canvas.width,
-
-        sourceHeight:
-          canvas.height,
-
-        strokeWidthNorm:
-          currentWidth /
-          normalizationScale
-
-      };
+      drawPreview();
 
     }
 
@@ -586,6 +963,9 @@
 
 
           points = [];
+
+
+          strokes = [];
 
 
           state.drawings[key] =
@@ -1394,6 +1774,7 @@
 
     if (!state.game) {
       return;
+
     }
 
 
@@ -2251,17 +2632,9 @@
         this.goalH / 2;
 
 
-      /*
-        得点処理中フラグ
-      */
-
       this.goalLocked =
         false;
 
-
-      /*
-        次ラウンド開始タイマー
-      */
 
       this.roundStarting =
         false;
@@ -2328,10 +2701,6 @@
           ? 0
           : 1;
 
-
-      /*
-        最初の1秒は待機。
-      */
 
       this.roundPause =
         performance.now() +
@@ -2554,7 +2923,7 @@
 
       if (
         !Array.isArray(polygon) ||
-        polygon.length < 2
+        polygon.length === 0
       ) {
 
         return null;
@@ -2590,6 +2959,70 @@
           0.85
         );
 
+
+      // -------------------------------------------------------
+      // 1点だけのストローク
+      //
+      // Matter.js に渡せるよう、
+      // 小さな円形ポリゴンに変換する。
+      // -------------------------------------------------------
+
+      if (
+        points.length === 1
+      ) {
+
+        const center =
+          points[0];
+
+
+        const vertices =
+          [];
+
+
+        const count =
+          12;
+
+
+        for (
+          let i = 0;
+          i < count;
+          i++
+        ) {
+
+          const angle =
+            (
+              i /
+              count
+            ) *
+            Math.PI *
+            2;
+
+
+          vertices.push({
+
+            x:
+              center.x +
+              Math.cos(angle) *
+              radius,
+
+            y:
+              center.y +
+              Math.sin(angle) *
+              radius
+
+          });
+
+        }
+
+
+        return vertices;
+
+      }
+
+
+      // -------------------------------------------------------
+      // 通常の線
+      // -------------------------------------------------------
 
       const left =
         [];
@@ -2710,6 +3143,8 @@
 
     // =========================================================
     // BODY FROM DRAWING
+    //
+    // 複数ストローク対応
     // =========================================================
 
     bodyFromDrawing(
@@ -2724,12 +3159,64 @@
         null;
 
 
+      const vertexSets =
+        [];
+
+
+      // -------------------------------------------------------
+      // 新方式
+      //
+      // drawing.strokes に全ストロークが入っている。
+      // -------------------------------------------------------
+
       if (
+        drawing &&
+        Array.isArray(
+          drawing.strokes
+        ) &&
+        drawing.strokes.length > 0
+      ) {
+
+        for (
+          const stroke of
+          drawing.strokes
+        ) {
+
+          const vertices =
+            this.makeStrokeVertices(
+              stroke,
+              scale
+            );
+
+
+          if (
+            vertices &&
+            vertices.length >= 3
+          ) {
+
+            vertexSets.push(
+              vertices
+            );
+
+          }
+
+        }
+
+      }
+
+
+      // -------------------------------------------------------
+      // 旧方式
+      //
+      // strokes がない古いデータでも動くようにする。
+      // -------------------------------------------------------
+
+      else if (
         drawing &&
         Array.isArray(
           drawing.polygon
         ) &&
-        drawing.polygon.length >= 2
+        drawing.polygon.length >= 1
       ) {
 
         const vertices =
@@ -2744,52 +3231,71 @@
           vertices.length >= 3
         ) {
 
-          try {
-
-            body =
-              Matter.Bodies.fromVertices(
-                x,
-                y,
-                [vertices],
-                {
-
-                  restitution:
-                    1,
-
-                  friction:
-                    0,
-
-                  frictionStatic:
-                    0,
-
-                  frictionAir:
-                    0.0001,
-
-                  density:
-                    0.001,
-
-                  ...options
-
-                },
-                true,
-                0.005,
-                1,
-                0.005
-              );
-
-          } catch (error) {
-
-            console.warn(
-              "[DRAW AIR HOCKEY] fromVertices error",
-              error
-            );
-
-          }
+          vertexSets.push(
+            vertices
+          );
 
         }
 
       }
 
+
+      // -------------------------------------------------------
+      // Matter.js で複数の形状を1つのBodyにする
+      // -------------------------------------------------------
+
+      if (
+        vertexSets.length > 0
+      ) {
+
+        try {
+
+          body =
+            Matter.Bodies.fromVertices(
+              x,
+              y,
+              vertexSets,
+              {
+
+                restitution:
+                  1,
+
+                friction:
+                  0,
+
+                frictionStatic:
+                  0,
+
+                frictionAir:
+                  0.0001,
+
+                density:
+                  0.001,
+
+                ...options
+
+              },
+              true,
+              0.005,
+              1,
+              0.005
+            );
+
+        } catch (error) {
+
+          console.warn(
+            "[DRAW AIR HOCKEY] fromVertices error",
+            error
+          );
+
+        }
+
+      }
+
+
+      // -------------------------------------------------------
+      // フォールバック
+      // -------------------------------------------------------
 
       if (!body) {
 
@@ -3618,6 +4124,7 @@
           this.puck
         );
 
+
         this.puck =
           null;
 
@@ -3686,11 +4193,6 @@
         true;
 
 
-      /*
-        ゴール直後は少し待ってから
-        次のパックを発射する。
-      */
-
       this.roundPause =
         performance.now() +
         700;
@@ -3715,11 +4217,6 @@
 
         };
 
-
-      /*
-        すぐに速度を入れず、
-        新ラウンド開始時に発射する。
-      */
 
       setTimeout(
         () => {
@@ -3806,23 +4303,6 @@
       side
     ) {
 
-      /*
-        すでに得点処理中なら何もしない
-      */
-
-      if (
-        this.goalLocked &&
-        !this.roundStarting
-      ) {
-
-        /*
-          checkGoal → score の最初の呼び出しだけ
-          通すため、ここでは続行する。
-        */
-
-      }
-
-
       if (
         this.roundStarting
       ) {
@@ -3846,10 +4326,6 @@
 
       }
 
-
-      /*
-        得点処理を開始
-      */
 
       this.goalLocked =
         true;
@@ -3924,10 +4400,6 @@
         ) * 5;
 
 
-      /*
-        先にローカル側を確実にリセット
-      */
-
       this.resetPuck(
         nextPlayer,
         {
@@ -3939,10 +4411,6 @@
         }
       );
 
-
-      /*
-        その後、ゲストへ同じ状態を送信
-      */
 
       send(
         "reset",
@@ -4446,11 +4914,6 @@
         performance.now() +
         700;
 
-
-      /*
-        ゲスト側もホストと同じタイミングで
-        新ラウンドを開始する。
-      */
 
       setTimeout(
         () => {
@@ -5211,6 +5674,8 @@
 
     // =========================================================
     // DRAW PLAYER SHAPE
+    //
+    // 複数ストローク対応
     // =========================================================
 
     drawPlayerShape(
@@ -5219,6 +5684,11 @@
 
       const c =
         this.ctx;
+
+
+      if (!body) {
+        return;
+      }
 
 
       let drawing =
@@ -5243,12 +5713,67 @@
       }
 
 
+      // -------------------------------------------------------
+      // 描画するストロークを取得
+      // -------------------------------------------------------
+
+      let strokes = [];
+
+
       if (
-        !drawing ||
-        !Array.isArray(
+        drawing &&
+        Array.isArray(
+          drawing.strokes
+        ) &&
+        drawing.strokes.length > 0
+      ) {
+
+        strokes =
+          drawing.strokes;
+
+      }
+
+      else if (
+        drawing &&
+        Array.isArray(
           drawing.polygon
-        ) ||
-        drawing.polygon.length < 2
+        ) &&
+        drawing.polygon.length > 0
+      ) {
+
+        // 旧データ対応
+
+        strokes = [
+
+          {
+
+            polygon:
+              drawing.polygon,
+
+            color:
+              drawing.color ||
+              "#ffffff",
+
+            width:
+              drawing.width ||
+              6,
+
+            strokeWidthNorm:
+              drawing.strokeWidthNorm
+
+          }
+
+        ];
+
+      }
+
+
+      // -------------------------------------------------------
+      // 描画データがない場合
+      // -------------------------------------------------------
+
+      if (
+        strokes.length === 0
       ) {
 
         c.save();
@@ -5296,9 +5821,9 @@
       }
 
 
-      const polygon =
-        drawing.polygon;
-
+      // -------------------------------------------------------
+      // BODY TRANSFORM
+      // -------------------------------------------------------
 
       c.save();
 
@@ -5314,62 +5839,144 @@
       );
 
 
-      c.beginPath();
-
-
-      c.moveTo(
-        polygon[0].x *
-          body.drawScale,
-
-        polygon[0].y *
-          body.drawScale
-      );
-
+      // -------------------------------------------------------
+      // 全ストローク描画
+      // -------------------------------------------------------
 
       for (
-        let i = 1;
-        i < polygon.length;
-        i++
+        const stroke of strokes
       ) {
 
-        c.lineTo(
-          polygon[i].x *
+        const polygon =
+          stroke?.polygon;
+
+
+        if (
+          !Array.isArray(
+            polygon
+          ) ||
+          polygon.length === 0
+        ) {
+
+          continue;
+
+        }
+
+
+        const color =
+          stroke.color ||
+          "#ffffff";
+
+
+        const width =
+          Math.max(
+            1,
+            Math.min(
+              20,
+              Number(
+                stroke.width ||
+                6
+              )
+            )
+          );
+
+
+        // -----------------------------------------------------
+        // 1点
+        // -----------------------------------------------------
+
+        if (
+          polygon.length === 1
+        ) {
+
+          const p =
+            polygon[0];
+
+
+          c.beginPath();
+
+
+          c.arc(
+            p.x *
+              body.drawScale,
+
+            p.y *
+              body.drawScale,
+
+            Math.max(
+              2,
+              width / 2
+            ),
+
+            0,
+            Math.PI * 2
+          );
+
+
+          c.fillStyle =
+            color;
+
+
+          c.fill();
+
+
+          continue;
+
+        }
+
+
+        // -----------------------------------------------------
+        // 通常の線
+        // -----------------------------------------------------
+
+        c.beginPath();
+
+
+        c.moveTo(
+          polygon[0].x *
             body.drawScale,
 
-          polygon[i].y *
+          polygon[0].y *
             body.drawScale
         );
 
+
+        for (
+          let i = 1;
+          i < polygon.length;
+          i++
+        ) {
+
+          c.lineTo(
+            polygon[i].x *
+              body.drawScale,
+
+            polygon[i].y *
+              body.drawScale
+          );
+
+        }
+
+
+        c.strokeStyle =
+          color;
+
+
+        c.lineWidth =
+          width;
+
+
+        c.lineCap =
+          "round";
+
+
+        c.lineJoin =
+          "round";
+
+
+        c.stroke();
+
       }
-
-
-      c.strokeStyle =
-        drawing.color ||
-        "#ffffff";
-
-
-      c.lineWidth =
-        Math.max(
-          1,
-          Math.min(
-            20,
-            Number(
-              drawing.width ||
-              6
-            )
-          )
-        );
-
-
-      c.lineCap =
-        "round";
-
-
-      c.lineJoin =
-        "round";
-
-
-      c.stroke();
 
 
       c.restore();
