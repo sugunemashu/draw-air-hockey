@@ -234,9 +234,11 @@ resize(){
       Matter.World.add(this.world,this.puck);
     }
     makeMallets(){
-      this.mallets=[];
-      for(let i=0;i<2;i++){
-        const d=this.drawings[i]?.mallet;
+      makeMallets(){
+  this.mallets=[];
+  for(let i=0;i<2;i++){
+    const side=i===0?"host":"guest";
+    const d=this.drawings[side]?.mallet;
         const x=i===0?220:780;
         const y=this.H/2;
         const b=this.bodyFromDrawing(d,x,y,105,{isStatic:true});
