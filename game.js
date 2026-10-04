@@ -39,6 +39,10 @@
     const step=Math.max(1,Math.ceil(points.length/28));
     return points.filter((_,i)=>i%step===0).map(p=>({x:(p.x-cx)/scale,y:(p.y-cy)/scale}));
   }
+   console.log("puckCanvas:", $("puckCanvas"));
+  console.log("malletCanvas:", $("malletCanvas"));
+  console.log("clear buttons:", document.querySelectorAll("[data-clear]").length);
+
   setupPad("puckCanvas","puck"); setupPad("malletCanvas","mallet");
 
   // ---------- Supabase messaging ----------
