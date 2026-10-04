@@ -666,101 +666,118 @@
     );
 
 
-    // ★ここだけ修正
-    // subscribe() の戻り値を "SUBSCRIBED" と比較しない
+    // =======================================================
+    // ★ FIX
+    //
+    // Supabase v2 の subscribe() は
+    // "SUBSCRIBED" を直接返さない。
+    //
+    // コールバックで接続状態を受け取る。
+    // =======================================================
 
     await new Promise(
       (resolve, reject) => {
 
         let finished = false;
 
+        const timeout =
+          setTimeout(
+            () => {
 
-        const success = () => {
+              if (finished) {
+                return;
+              }
 
-          if (finished) {
-            return;
-          }
+              finished = true;
 
-          finished = true;
+              reject(
+                new Error(
+                  "通信チャンネルへの接続がタイムアウトしました"
+                )
+              );
 
-          resolve();
-
-        };
-
-
-        const failure = reason => {
-
-          if (finished) {
-            return;
-          }
-
-          finished = true;
-
-          reject(
-            new Error(
-              "通信チャンネルに接続できません: " +
-              reason
-            )
+            },
+            10000
           );
-
-        };
 
 
         state.channel.subscribe(
-          status => {
+          subscribeStatus => {
 
             console.log(
-              "[DRAW AIR HOCKEY] Realtime status:",
-              status
+              "[DRAW AIR HOCKEY] channel status:",
+              subscribeStatus
             );
 
 
             if (
-              status ===
+              subscribeStatus ===
               "SUBSCRIBED"
             ) {
 
-              success();
+              if (finished) {
+                return;
+              }
+
+              finished = true;
+
+              clearTimeout(
+                timeout
+              );
+
+              resolve();
 
             }
-            else if (
-              status ===
+
+
+            if (
+              subscribeStatus ===
               "CHANNEL_ERROR"
             ) {
 
-              failure(
-                "CHANNEL_ERROR"
+              if (finished) {
+                return;
+              }
+
+              finished = true;
+
+              clearTimeout(
+                timeout
+              );
+
+              reject(
+                new Error(
+                  "Supabase通信チャンネルでエラーが発生しました"
+                )
               );
 
             }
-            else if (
-              status ===
+
+
+            if (
+              subscribeStatus ===
               "TIMED_OUT"
             ) {
 
-              failure(
-                "TIMED_OUT"
+              if (finished) {
+                return;
+              }
+
+              finished = true;
+
+              clearTimeout(
+                timeout
+              );
+
+              reject(
+                new Error(
+                  "Supabase通信チャンネルへの接続がタイムアウトしました"
+                )
               );
 
             }
 
           }
-        );
-
-
-        setTimeout(
-          () => {
-
-            if (!finished) {
-
-              failure(
-                "接続タイムアウト"
-              );
-
-            }
-
-          },
-          20000
         );
 
       }
@@ -1867,11 +1884,6 @@
         drawings;
 
 
-      /*
-        HOST = 左
-        GUEST = 右
-      */
-
       this.localSide =
         state.role === "host"
           ? 0
@@ -1899,10 +1911,6 @@
     }
 
 
-    // =======================================================
-    // RESIZE
-    // =======================================================
-
     resize() {
 
       this.canvas.width =
@@ -1913,10 +1921,6 @@
 
     }
 
-
-    // =======================================================
-    // ARENA
-    // =======================================================
 
     makeArena() {
 
@@ -1979,10 +1983,6 @@
 
     }
 
-
-    // =======================================================
-    // BODY FROM DRAWING
-    // =======================================================
 
     bodyFromDrawing(
       drawing,
@@ -2078,10 +2078,6 @@
         );
 
 
-      /*
-        物理BODY自体は描画しない。
-      */
-
       body.drawData =
         Array.isArray(drawing)
           ? null
@@ -2096,10 +2092,6 @@
 
     }
 
-
-    // =======================================================
-    // PUCK
-    // =======================================================
 
     makePuck() {
 
@@ -2133,10 +2125,6 @@
 
     }
 
-
-    // =======================================================
-    // MALLETS
-    // =======================================================
 
     makeMallets() {
 
@@ -2194,10 +2182,6 @@
     }
 
 
-    // =======================================================
-    // RESET PUCK
-    // =======================================================
-
     resetPuck(nextPlayer) {
 
       Matter.World.remove(
@@ -2252,10 +2236,6 @@
 
     }
 
-
-    // =======================================================
-    // SCORE
-    // =======================================================
 
     score(side) {
 
@@ -2316,10 +2296,6 @@
     }
 
 
-    // =======================================================
-    // FINISH
-    // =======================================================
-
     finish(side) {
 
       state.running =
@@ -2355,10 +2331,6 @@
 
     }
 
-
-    // =======================================================
-    // REMOTE
-    // =======================================================
 
     applyRemote(payload) {
 
@@ -2458,10 +2430,6 @@
     }
 
 
-    // =======================================================
-    // REMOTE RESET
-    // =======================================================
-
     remoteReset(payload) {
 
       if (!payload) {
@@ -2491,10 +2459,6 @@
 
     }
 
-
-    // =======================================================
-    // INPUT
-    // =======================================================
 
     bindInput() {
 
@@ -2627,10 +2591,6 @@
 
     }
 
-
-    // =======================================================
-    // LOOP
-    // =======================================================
 
     loop(time) {
 
@@ -2766,10 +2726,6 @@
     }
 
 
-    // =======================================================
-    // DRAW GAME
-    // =======================================================
-
     draw() {
 
       const c =
@@ -2885,10 +2841,6 @@
     }
 
 
-    // =======================================================
-    // DRAW PLAYER SHAPE
-    // =======================================================
-
     drawPlayerShape(body) {
 
       const drawing =
@@ -2990,11 +2942,8 @@
       }
 
 
-      /*
-        ★塗りつぶさない
-
-        ★勝手に閉じない
-      */
+      // 塗りつぶさない
+      // 勝手に閉じない
 
       c.strokeStyle =
         drawing.color ||
@@ -3059,15 +3008,16 @@
 
     try {
 
+      // ★ runningを先にtrueにする
+      state.running =
+        true;
+
+
       state.game =
         new AirGame(
           drawings,
           state.host
         );
-
-
-      state.running =
-        true;
 
 
       show("game");
