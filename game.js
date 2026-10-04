@@ -33,7 +33,8 @@
 if (clearBtn) {
   clearBtn.onclick=()=>{ctx.clearRect(0,0,c.width,c.height);state.drawings[key]=null};
 }
-  function normalizePolygon(points,w,h){
+}
+function normalizePolygon(points,w,h){
     const minx=Math.min(...points.map(p=>p.x)), maxx=Math.max(...points.map(p=>p.x));
     const miny=Math.min(...points.map(p=>p.y)), maxy=Math.max(...points.map(p=>p.y));
     const cx=(minx+maxx)/2, cy=(miny+maxy)/2, scale=Math.max(maxx-minx,maxy-miny)||1;
