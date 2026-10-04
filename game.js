@@ -230,20 +230,44 @@ resize(){
     makePuck(){
   const side=this.currentPuck===0?"host":"guest";
   const d=this.drawings[side]?.puck;
-  this.puck=this.bodyFromDrawing(d,this.W/2,this.H/2,70);
-      Matter.World.add(this.world,this.puck);
-    }
-    makeMallets(){
-      makeMallets(){
+
+  this.puck=this.bodyFromDrawing(
+    d,
+    this.W/2,
+    this.H/2,
+    70
+  );
+
+  this.puck.label="puck";
+  this.puck.playerShape=this.currentPuck;
+
+  Matter.World.add(this.world,this.puck);
+}
+
+makeMallets(){
   this.mallets=[];
+
   for(let i=0;i<2;i++){
     const side=i===0?"host":"guest";
     const d=this.drawings[side]?.mallet;
-        const x=i===0?220:780;
-        const y=this.H/2;
-        const b=this.bodyFromDrawing(d,x,y,105,{isStatic:true});
-        b.label="mallet"+i;b.player=i;this.mallets[i]=b;Matter.World.add(this.world,b);
-      }
+
+    const x=i===0?220:780;
+    const y=this.H/2;
+
+    const b=this.bodyFromDrawing(
+      d,
+      x,
+      y,
+      105,
+      {isStatic:true}
+    );
+
+    b.label="mallet"+i;
+    b.player=i;
+
+    this.mallets[i]=b;
+    Matter.World.add(this.world,b);
+  }
     }
     resetPuck(nextPlayer){
       Matter.World.remove(this.world,this.puck);this.currentPuck=nextPlayer;
