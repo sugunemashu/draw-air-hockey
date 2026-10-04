@@ -437,8 +437,9 @@ b.drawScale=105;
 
       c.restore();
     }
-  }
-  console.log("★ AirGameを作成します");
+ }
+  function startGame(drawings){
+    console.log("★ AirGameを作成します");
   state.game=new AirGame(drawings,state.host);
   state.running=true;
   show("game");
