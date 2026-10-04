@@ -890,34 +890,78 @@
   // ROOM
   // =========================================================
 
-  async function createRoom() {
+async function createRoom(){
 
-    if (!supa) {
+  if(!supa){
+    msg("Supabaseが設定されていません。config.jsを確認してください。");
+    return;
+  }
 
-      msg(
-        "先にconfig.jsへSupabase設定を入れてください。"
-      );
+  try{
 
-      return;
+    msg("ルームを作成しています…");
+    status("ルーム作成中…");
 
-    }
+    /*
+      DBへSELECTして空き番号を探す方式をやめる。
+
+      これまでは
+
+        SELECT → 空いている？
+        ↓
+        INSERT
+
+      という2段階だったため、
+      SELECTの権限/RLSで失敗すると
+      ルーム作成自体ができなくなっていた。
+
+      今回はINSERTを直接試す。
+    */
+
+    const chars =
+      "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 
-    const code =
-      await uniqueCode();
+    let created = false;
+    let lastError = null;
 
 
-    const {
-      error
-    } =
-      await supa
+    /*
+      最大10回までコードを変えてINSERT。
+
+      5桁なので衝突確率はかなり低い。
+      万一同じコードが存在していても、
+      別のコードで再試行する。
+    */
+
+    for(let attempt = 0; attempt < 10; attempt++){
+
+      let code = "";
+
+      for(let i = 0; i < 5; i++){
+
+        code += chars[
+          Math.floor(
+            Math.random() * chars.length
+          )
+        ];
+
+      }
+
+
+      const {
+        error
+      } = await supa
         .from("rooms")
         .insert({
 
-          code,
+          code: code,
 
           host_id:
             state.playerId,
+
+          guest_id:
+            null,
 
           status:
             "waiting"
@@ -925,62 +969,140 @@
         });
 
 
-    if (error) {
+      if(!error){
 
-      msg(
-        "ルーム作成失敗: " +
-        error.message
-      );
+        state.room = code;
 
-      return;
+        state.role = "host";
+
+        state.host = true;
+
+        state.ready = false;
+
+        state.opponent = null;
+
+
+        /*
+          ルーム作成成功後にだけ
+          通信チャンネルを開く。
+        */
+
+        await openChannel(code);
+
+
+        show("draw");
+
+
+        status(
+          "ルーム " + code
+        );
+
+
+        msg(
+          "部屋番号: " +
+          code +
+          "　この番号を相手に伝えてください。"
+        );
+
+
+        /*
+          相手に「ホストがいる」と知らせる。
+        */
+
+        send(
+          "signal",
+          {
+            role: "host"
+          }
+        );
+
+
+        created = true;
+
+        break;
+
+      }
+
+
+      lastError = error;
+
+
+      /*
+        primary key(code)の重複なら
+        次のコードで再試行。
+
+        それ以外のエラーなら
+        無駄に10回繰り返さない。
+      */
+
+      const text =
+        String(
+          error.message || ""
+        ).toLowerCase();
+
+
+      const isDuplicate =
+        error.code === "23505" ||
+        text.includes("duplicate") ||
+        text.includes("already exists");
+
+
+      if(!isDuplicate){
+
+        break;
+
+      }
 
     }
 
 
-    state.room = code;
+    if(!created){
 
-    state.role = "host";
-
-    state.host = true;
-
-    state.ready = false;
-
-
-    await openChannel(code);
+      console.error(
+        "[DRAW AIR HOCKEY] ルーム作成失敗",
+        lastError
+      );
 
 
-    show("draw");
+      msg(
+        "ルーム作成に失敗しました: " +
+        (
+          lastError?.message ||
+          "原因不明"
+        )
+      );
 
 
-    status(
-      "ルーム " + code
+      status(
+        "ルーム作成失敗"
+      );
+
+    }
+
+  }catch(error){
+
+    console.error(
+      "[DRAW AIR HOCKEY] createRoom error",
+      error
     );
 
 
     msg(
-      "部屋番号: " +
-      code +
-      "　この番号を相手に伝えてください。"
+      "ルーム作成中にエラーが発生しました: " +
+      (
+        error?.message ||
+        error
+      )
     );
 
 
-    /*
-      ホストであることを知らせる。
-    */
-
-    send(
-      "signal",
-      {
-        role: "host"
-      }
+    status(
+      "ルーム作成失敗"
     );
 
   }
 
-
-
-  async function uniqueCode() {
-
+}
     const chars =
       "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
