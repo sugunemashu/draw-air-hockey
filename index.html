@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>DRAW AIR HOCKEY</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>DRAW AIR HOCKEY</h1>
+    <div id="status">オフライン</div>
+  </header>
+
+  <main>
+    <section id="menu" class="panel">
+      <h2>1 vs 1 AIR HOCKEY</h2>
+      <button id="quickBtn">オンラインマッチング</button>
+      <div class="roomRow">
+        <button id="createBtn">ルーム作成</button>
+        <input id="roomInput" maxlength="5" placeholder="5桁コード">
+        <button id="joinBtn">ルーム検索</button>
+      </div>
+      <p id="menuMsg">友達と遊ぶならルーム作成→表示された5桁コードを相手に伝えてください。</p>
+      <details>
+        <summary>最初の設定</summary>
+        <p>このゲームはGitHub Pagesに置けるフロントエンドです。オンライン機能にはSupabaseの無料プロジェクトが必要です。READMEのSQLと設定手順を使ってください。</p>
+      </details>
+    </section>
+
+    <section id="draw" class="panel hidden">
+      <h2>対戦前：自分だけの形を描こう</h2>
+      <p>パックとマレットを相手に見せずに描きます。線で囲んだ形が、そのまま物理ボディになります。</p>
+      <div class="drawGrid">
+        <div class="drawCard">
+          <h3>パック</h3>
+          <canvas id="puckCanvas" width="360" height="240"></canvas>
+          <button data-clear="puck">消す</button>
+        </div>
+        <div class="drawCard">
+          <h3>マレット</h3>
+          <canvas id="malletCanvas" width="360" height="240"></canvas>
+          <button data-clear="mallet">消す</button>
+        </div>
+      </div>
+      <button id="readyBtn">描き終わった！</button>
+      <p id="readyMsg"></p>
+    </section>
+
+    <section id="game" class="hidden">
+      <div class="scorebar">
+        <div><span id="p1Name">PLAYER 1</span><b id="score1">0</b></div>
+        <div id="roundMsg">READY</div>
+        <div><b id="score2">0</b><span id="p2Name">PLAYER 2</span></div>
+      </div>
+      <canvas id="gameCanvas"></canvas>
+      <div class="mobileHint">自分のマレットをドラッグして操作</div>
+    </section>
+
+    <section id="result" class="panel hidden">
+      <h2 id="resultTitle">WIN!</h2>
+      <button id="backBtn">メニューへ</button>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
