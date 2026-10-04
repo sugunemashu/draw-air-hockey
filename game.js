@@ -236,6 +236,7 @@ resize(){
       this.goalW=260;
     }
     bodyFromDrawing(d,x,y,scale,options={}){
+      console.log("★ Matterに渡す形:", d);
       const verts=(d&&d.length>2?d:[{x:-.5,y:-.5},{x:.5,y:-.5},{x:.5,y:.5},{x:-.5,y:.5}])
         .map(p=>({x:p.x*scale,y:p.y*scale}));
       return Matter.Bodies.fromVertices(x,y,[verts],{restitution:.95,friction:.01,frictionAir:.002,...options},true);
