@@ -2233,11 +2233,9 @@
         new Map();
 
 
-      /*
-        ★ ゴール判定用
-
-        左右のゴール開口部
-      */
+      // =====================================================
+      // GOAL
+      // =====================================================
 
       this.goalH =
         260;
@@ -2254,12 +2252,18 @@
 
 
       /*
-        ★ ゴール処理済みフラグ
-
-        同じフレームで二重得点するのを防ぐ。
+        得点処理中フラグ
       */
 
       this.goalLocked =
+        false;
+
+
+      /*
+        次ラウンド開始タイマー
+      */
+
+      this.roundStarting =
         false;
 
 
@@ -2325,6 +2329,10 @@
           : 1;
 
 
+      /*
+        最初の1秒は待機。
+      */
+
       this.roundPause =
         performance.now() +
         1000;
@@ -2352,9 +2360,14 @@
       console.log(
         "[DRAW AIR HOCKEY] GAME START",
         {
-          host: this.host,
-          localSide: this.localSide,
-          drawings: this.drawings
+          host:
+            this.host,
+
+          localSide:
+            this.localSide,
+
+          drawings:
+            this.drawings
         }
       );
 
@@ -2401,12 +2414,6 @@
           0
 
       };
-
-
-      /*
-        ★ ゴールの上下位置は
-        constructor と同じ値を使用。
-      */
 
 
       const goalTop =
@@ -3469,7 +3476,8 @@
       if (
         !this.host ||
         !this.puck ||
-        this.goalLocked
+        this.goalLocked ||
+        this.roundStarting
       ) {
 
         return false;
@@ -3477,9 +3485,13 @@
       }
 
 
+      const now =
+        performance.now();
+
+
       if (
         this.roundPause &&
-        performance.now() <
+        now <
         this.roundPause
       ) {
 
@@ -3496,23 +3508,27 @@
         this.puck.position.y;
 
 
-      /*
-        ★ 左ゴール
+      const inGoalHeight =
+        y >=
+          this.goalTop &&
+        y <=
+          this.goalBottom;
 
-        パック中心が左端を抜け、
-        ゴール開口部の高さに入っていれば
-        即得点。
-      */
+
+      if (!inGoalHeight) {
+
+        return false;
+
+      }
+
+
+      // -------------------------------------------------------
+      // LEFT GOAL
+      // -------------------------------------------------------
 
       if (
-        x <= 0 &&
-        y >= this.goalTop &&
-        y <= this.goalBottom
+        x <= 0
       ) {
-
-        this.goalLocked =
-          true;
-
 
         console.log(
           "[DRAW AIR HOCKEY] LEFT GOAL",
@@ -3521,6 +3537,10 @@
             y
           }
         );
+
+
+        this.goalLocked =
+          true;
 
 
         this.score(
@@ -3533,19 +3553,13 @@
       }
 
 
-      /*
-        ★ 右ゴール
-      */
+      // -------------------------------------------------------
+      // RIGHT GOAL
+      // -------------------------------------------------------
 
       if (
-        x >= this.W &&
-        y >= this.goalTop &&
-        y <= this.goalBottom
+        x >= this.W
       ) {
-
-        this.goalLocked =
-          true;
-
 
         console.log(
           "[DRAW AIR HOCKEY] RIGHT GOAL",
@@ -3554,6 +3568,10 @@
             y
           }
         );
+
+
+        this.goalLocked =
+          true;
 
 
         this.score(
@@ -3580,6 +3598,19 @@
       velocity = null
     ) {
 
+      console.log(
+        "[DRAW AIR HOCKEY] RESET PUCK",
+        {
+          nextPlayer,
+          velocity
+        }
+      );
+
+
+      // -------------------------------------------------------
+      // OLD PUCK REMOVE
+      // -------------------------------------------------------
+
       if (this.puck) {
 
         Matter.World.remove(
@@ -3587,8 +3618,15 @@
           this.puck
         );
 
+        this.puck =
+          null;
+
       }
 
+
+      // -------------------------------------------------------
+      // PLAYER CHANGE
+      // -------------------------------------------------------
 
       this.currentPuck =
         nextPlayer === 0 ||
@@ -3596,6 +3634,10 @@
           ? nextPlayer
           : 0;
 
+
+      // -------------------------------------------------------
+      // NEW PUCK
+      // -------------------------------------------------------
 
       this.makePuck();
 
@@ -3612,6 +3654,46 @@
 
         }
       );
+
+
+      Matter.Body.setVelocity(
+        this.puck,
+        {
+          x:
+            0,
+
+          y:
+            0
+        }
+      );
+
+
+      Matter.Body.setAngularVelocity(
+        this.puck,
+        0
+      );
+
+
+      // -------------------------------------------------------
+      // RESET STATE
+      // -------------------------------------------------------
+
+      this.goalLocked =
+        false;
+
+
+      this.roundStarting =
+        true;
+
+
+      /*
+        ゴール直後は少し待ってから
+        次のパックを発射する。
+      */
+
+      this.roundPause =
+        performance.now() +
+        700;
 
 
       const launch =
@@ -3634,25 +3716,84 @@
         };
 
 
-      Matter.Body.setVelocity(
-        this.puck,
-        launch
+      /*
+        すぐに速度を入れず、
+        新ラウンド開始時に発射する。
+      */
+
+      setTimeout(
+        () => {
+
+          if (
+            !state.running ||
+            !this.puck
+          ) {
+
+            return;
+
+          }
+
+
+          Matter.Body.setPosition(
+            this.puck,
+            {
+
+              x:
+                this.W / 2,
+
+              y:
+                this.H / 2
+
+            }
+          );
+
+
+          Matter.Body.setVelocity(
+            this.puck,
+            {
+
+              x:
+                launch.x,
+
+              y:
+                launch.y
+
+            }
+          );
+
+
+          Matter.Body.setAngularVelocity(
+            this.puck,
+            0
+          );
+
+
+          this.goalLocked =
+            false;
+
+
+          this.roundStarting =
+            false;
+
+
+          this.roundPause =
+            0;
+
+
+          console.log(
+            "[DRAW AIR HOCKEY] NEXT ROUND START",
+            {
+              currentPuck:
+                this.currentPuck,
+
+              velocity:
+                launch
+            }
+          );
+
+        },
+        700
       );
-
-
-      Matter.Body.setAngularVelocity(
-        this.puck,
-        0
-      );
-
-
-      this.goalLocked =
-        false;
-
-
-      this.roundPause =
-        performance.now() +
-        900;
 
     }
 
@@ -3666,28 +3807,52 @@
     ) {
 
       /*
-        ★ 念のため二重得点を完全防止
+        すでに得点処理中なら何もしない
       */
 
       if (
-        this.goalLocked !== true
+        this.goalLocked &&
+        !this.roundStarting
       ) {
 
-        this.goalLocked =
-          true;
+        /*
+          checkGoal → score の最初の呼び出しだけ
+          通すため、ここでは続行する。
+        */
 
       }
 
 
       if (
+        this.roundStarting
+      ) {
+
+        return;
+
+      }
+
+
+      const now =
+        performance.now();
+
+
+      if (
         this.roundPause &&
-        performance.now() <
+        now <
         this.roundPause
       ) {
 
         return;
 
       }
+
+
+      /*
+        得点処理を開始
+      */
+
+      this.goalLocked =
+        true;
 
 
       this.scores[side]++;
@@ -3715,6 +3880,10 @@
       );
 
 
+      // =====================================================
+      // GAME OVER
+      // =====================================================
+
       if (
         this.scores[side] >=
         5
@@ -3729,6 +3898,10 @@
 
       }
 
+
+      // =====================================================
+      // NEXT ROUND
+      // =====================================================
 
       const nextPlayer =
         1 -
@@ -3751,6 +3924,10 @@
         ) * 5;
 
 
+      /*
+        先にローカル側を確実にリセット
+      */
+
       this.resetPuck(
         nextPlayer,
         {
@@ -3763,12 +3940,19 @@
       );
 
 
+      /*
+        その後、ゲストへ同じ状態を送信
+      */
+
       send(
         "reset",
         {
 
           scores:
-            this.scores,
+            [
+              this.scores[0],
+              this.scores[1]
+            ],
 
           currentPuck:
             this.currentPuck,
@@ -3890,7 +4074,8 @@
 
       if (
         payload.puck &&
-        this.puck
+        this.puck &&
+        !this.roundStarting
       ) {
 
         Matter.Body.setPosition(
@@ -3972,11 +4157,13 @@
           Matter.Body.setPosition(
             body,
             {
+
               x:
                 remote.x,
 
               y:
                 remote.y
+
             },
             false
           );
@@ -4004,7 +4191,10 @@
       ) {
 
         this.scores =
-          payload.scores;
+          [
+            payload.scores[0],
+            payload.scores[1]
+          ];
 
 
         setText(
@@ -4110,11 +4300,13 @@
       Matter.Body.setPosition(
         body,
         {
+
           x:
             x,
 
           y:
             y
+
         },
         false
       );
@@ -4150,7 +4342,10 @@
         Array.isArray(
           payload.scores
         )
-          ? payload.scores
+          ? [
+              payload.scores[0],
+              payload.scores[1]
+            ]
           : [0, 0];
 
 
@@ -4163,6 +4358,12 @@
       setText(
         "score2",
         this.scores[1]
+      );
+
+
+      console.log(
+        "[DRAW AIR HOCKEY] REMOTE RESET",
+        payload
       );
 
 
@@ -4202,17 +4403,78 @@
       Matter.Body.setPosition(
         this.puck,
         {
+
           x:
             this.W / 2,
 
           y:
             this.H / 2
+
         }
+      );
+
+
+      Matter.Body.setVelocity(
+        this.puck,
+        {
+
+          x:
+            0,
+
+          y:
+            0
+
+        }
+      );
+
+
+      Matter.Body.setAngularVelocity(
+        this.puck,
+        0
       );
 
 
       this.goalLocked =
         false;
+
+
+      this.roundStarting =
+        true;
+
+
+      this.roundPause =
+        performance.now() +
+        700;
+
+
+      /*
+        ゲスト側もホストと同じタイミングで
+        新ラウンドを開始する。
+      */
+
+      setTimeout(
+        () => {
+
+          if (
+            !state.running ||
+            !this.puck
+          ) {
+
+            return;
+
+          }
+
+
+          this.roundStarting =
+            false;
+
+
+          this.roundPause =
+            0;
+
+        },
+        700
+      );
 
     }
 
@@ -4348,11 +4610,13 @@
           Matter.Body.setPosition(
             body,
             {
+
               x:
                 clampedX,
 
               y:
                 clampedY
+
             },
             false
           );
@@ -4553,17 +4817,9 @@
         }
 
 
-        /*
-          ★★★ 最重要 ★★★
-
-          物理演算後、壁補正より先に
-          ゴール判定を行う。
-
-          これによって、
-          「ゴールに入ったのに壁補正で
-           戻されてしまう」
-          という問題を防ぐ。
-        */
+        // ===================================================
+        // GOAL
+        // ===================================================
 
         if (
           this.checkGoal()
@@ -4591,9 +4847,9 @@
         }
 
 
-        /*
-          上下壁の安全補正
-        */
+        // ===================================================
+        // 上下壁安全補正
+        // ===================================================
 
         if (
           this.puck.position.y <
@@ -4603,11 +4859,13 @@
           Matter.Body.setPosition(
             this.puck,
             {
+
               x:
                 this.puck.position.x,
 
               y:
                 25
+
             },
             false
           );
@@ -4621,11 +4879,13 @@
             Matter.Body.setVelocity(
               this.puck,
               {
+
                 x:
                   this.puck.velocity.x,
 
                 y:
                   -this.puck.velocity.y
+
               }
             );
 
@@ -4643,12 +4903,14 @@
           Matter.Body.setPosition(
             this.puck,
             {
+
               x:
                 this.puck.position.x,
 
               y:
                 this.H -
                   25
+
             },
             false
           );
@@ -4662,11 +4924,13 @@
             Matter.Body.setVelocity(
               this.puck,
               {
+
                 x:
                   this.puck.velocity.x,
 
                 y:
                   -this.puck.velocity.y
+
               }
             );
 
@@ -4776,11 +5040,13 @@
 
               position:
                 {
+
                   x:
                     mallet.position.x,
 
                   y:
                     mallet.position.y
+
                 }
 
             }
@@ -5158,6 +5424,7 @@
       console.log(
         "[DRAW AIR HOCKEY] START DRAWINGS",
         {
+
           host:
             drawings.host,
 
@@ -5166,6 +5433,7 @@
 
           currentPuck:
             initialPuck
+
         }
       );
 
@@ -5234,6 +5502,14 @@
 
                 }
               );
+
+
+              state.game.roundPause =
+                0;
+
+
+              state.game.roundStarting =
+                false;
 
             }
 
