@@ -117,4 +117,256 @@
       <button
         id="roomReadyBtn"
         type="button"
+        style="display:none;"
+      >
+        準備する
+      </button>
+
+      <button
+        id="roomBackBtn"
+        type="button"
+        style="display:none;"
+      >
+        メニューへ戻る
+      </button>
+
+      <p>
+        次へ進むには、下のボタンからゲーム用の形を描きます。
+      </p>
+
+      <button
+        id="roomToDrawBtn"
+        type="button"
+      >
+        形を描く
+      </button>
+
+    </section>
+
+
+    <!-- =========================
+         お絵描き
+    ========================== -->
+
+    <section
+      id="draw"
+      class="panel hidden"
+    >
+
+      <h2>
+        対戦前：自分だけの形を描こう
+      </h2>
+
+      <p>
+        パックとマレットを相手に見せずに描きます。
+        線で囲んだ形が、そのままゲーム内の形になります。
+      </p>
+
+      <div class="drawGrid">
+
+
+        <!-- パック -->
+
+        <div class="drawCard">
+
+          <h3>
+            パック
+          </h3>
+
+          <canvas
+            id="puckCanvas"
+            width="360"
+            height="240"
+          ></canvas>
+
+          <button
+            type="button"
+            data-clear="puck"
+          >
+            消す
+          </button>
+
+        </div>
+
+
+        <!-- マレット -->
+
+        <div class="drawCard">
+
+          <h3>
+            マレット
+          </h3>
+
+          <canvas
+            id="malletCanvas"
+            width="360"
+            height="240"
+          ></canvas>
+
+          <button
+            type="button"
+            data-clear="mallet"
+          >
+            消す
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <button
+        id="readyBtn"
+        type="button"
+        disabled
+      >
+        描き終わった！
+      </button>
+
+      <p id="readyMsg"></p>
+
+    </section>
+
+
+    <!-- =========================
+         ゲーム画面
+    ========================== -->
+
+    <section
+      id="game"
+      class="hidden"
+    >
+
+      <div class="scorebar">
+
+
+        <!-- HOST -->
+
+        <div>
+
+          <span>
+            PLAYER 1
+          </span>
+
+          <b id="hostScore">
+            0
+          </b>
+
+        </div>
+
+
+        <!-- 中央 -->
+
+        <div id="roundMsg">
+          READY
+        </div>
+
+
+        <!-- GUEST -->
+
+        <div>
+
+          <b id="guestScore">
+            0
+          </b>
+
+          <span>
+            PLAYER 2
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <!-- 互換用スコア表示 -->
+      <span
+        id="scoreLeft"
+        style="display:none;"
+      >
+        0
+      </span>
+
+      <span
+        id="scoreRight"
+        style="display:none;"
+      >
+        0
+      </span>
+
+
+      <canvas
+        id="gameCanvas"
+      ></canvas>
+
+
+      <div class="mobileHint">
+        自分のマレットをドラッグして操作
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         結果
+    ========================== -->
+
+    <section
+      id="result"
+      class="panel hidden"
+    >
+
+      <h2 id="resultText">
+        YOU WIN!
+      </h2>
+
+      <p>
+        最終スコア
+      </p>
+
+      <div id="finalScore">
+        0 - 0
+      </div>
+
+      <button
+        id="backToMenuBtn"
+        type="button"
+      >
+        メニューへ
+      </button>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<!-- =========================
+     JavaScript
+========================== -->
+
+<!-- Matter.js -->
+<script
+  src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js">
+</script>
+
+<!-- poly-decomp -->
+<script
+  src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js">
+</script>
+
+<!-- Supabase -->
+<script
+  src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+</script>
+
+<!-- Supabase設定 -->
+<script src="config.js"></script>
+
+<!-- ゲーム本体 -->
+<script src="game.js"></script>
+
+</body>
+</html>
 ```
