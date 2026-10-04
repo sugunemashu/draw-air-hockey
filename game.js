@@ -60,22 +60,8 @@
     drawing=false;
 
     if(pts.length>3){
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x,pts[0].y);
-
-      for(const p of pts.slice(1)){
-        ctx.lineTo(p.x,p.y);
-      }
-
-      ctx.closePath();
-      ctx.stroke();
-
-      state.drawings[key]=normalizePolygon(
-        pts,
-        c.width,
-        c.height
-      );
-    }
+  state.drawings[key]=normalizePolygon(pts,c.width,c.height);
+}
   }
 
   c.addEventListener("pointerdown",down);
@@ -101,16 +87,10 @@ function normalizePolygon(points,w,h){
   const cy=(miny+maxy)/2;
   const scale=Math.max(maxx-minx,maxy-miny)||1;
 
-  // 輪郭をできるだけ残す
-  const maxPoints=80;
-  const step=Math.max(1,Math.ceil(points.length/maxPoints));
-
-  return points
-    .filter((_,i)=>i%step===0)
-    .map(p=>({
-      x:(p.x-cx)/scale,
-      y:(p.y-cy)/scale
-    }));
+  return points.map(p=>({
+    x:(p.x-cx)/scale,
+    y:(p.y-cy)/scale
+  }));
 }
 setupPad("puckCanvas","puck"); setupPad("malletCanvas","mallet");
   // ---------- Supabase messaging ----------
