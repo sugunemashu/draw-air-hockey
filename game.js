@@ -54,7 +54,21 @@
     if(res!=="SUBSCRIBED") throw new Error("通信チャンネルに接続できません");
   }
   function send(event,payload){state.channel?.send({type:"broadcast",event,payload:{...payload,from:state.playerId}})}
-  function onSignal(p){ if(p.from!==state.playerId && !state.opponent){state.opponent=p; state.role="guest"; state.host=false; state.ready=false; show("draw");status("対戦相手が見つかりました");}}
+  function onSignal(p){
+  if(p.from===state.playerId)return;
+  if(state.host){
+    state.opponent={...(state.opponent||{}),...p};
+    return;
+  }
+  if(!state.opponent){
+    state.opponent=p;
+    state.role="guest";
+    state.host=false;
+    state.ready=false;
+    show("draw");
+    status("対戦相手が見つかりました");
+  }
+}
   function onReady(p){
     if(p.from===state.playerId)return;
     state.opponent={...(state.opponent||{}),...p,ready:true};
