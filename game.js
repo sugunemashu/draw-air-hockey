@@ -240,7 +240,8 @@ makePuck(){
   );
 
   this.puck.label="puck";
-  this.puck.playerShape=this.currentPuck;
+this.puck.playerShape=this.currentPuck;
+this.puck.drawShape=d;
 
   Matter.World.add(this.world,this.puck);
 }
@@ -265,8 +266,9 @@ console.log("★ マレットの形データ:", side, d);
       {isStatic:true}
     );
 
-    b.label="mallet"+i;
-    b.player=i;
+   b.label="mallet"+i;
+   b.player=i;
+   b.drawShape=d;
 
     this.mallets[i]=b;
     Matter.World.add(this.world,b);
