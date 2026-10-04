@@ -1,13 +1,24 @@
+```css
 * {
   box-sizing: border-box;
 }
+
+
+/* =========================================================
+   基本
+========================================================= */
 
 html,
 body {
   margin: 0;
   padding: 0;
+
+  width: 100%;
+  min-height: 100%;
+
   background: #0b1020;
   color: #eef4ff;
+
   font-family:
     system-ui,
     -apple-system,
@@ -18,433 +29,68 @@ body {
 
 body {
   min-height: 100vh;
+
   display: flex;
   justify-content: center;
+
   overflow-x: hidden;
 }
 
+
+/* =========================================================
+   アプリ全体
+========================================================= */
+
 #app {
   width: min(1100px, 100%);
+
   padding: 14px;
+
+  position: relative;
 }
 
 
-/* =========================
+/* =========================================================
    ヘッダー
-========================= */
+========================================================= */
 
 header {
   display: flex;
+
   justify-content: space-between;
   align-items: center;
+
   margin-bottom: 10px;
 }
 
 h1 {
-  font-size: 20px;
-  letter-spacing: 2px;
   margin: 0;
+
+  font-size: 20px;
+  font-weight: 800;
+
+  letter-spacing: 2px;
 }
 
-#status {
+#statusText {
   font-size: 12px;
+
   opacity: 0.8;
+
+  text-align: right;
 }
 
 
-/* =========================
+/* =========================================================
    パネル
-========================= */
+========================================================= */
 
 .panel {
   position: relative;
-  z-index: 1;
-
-  background: #141c32;
-  border: 1px solid #2b3a5e;
-  border-radius: 16px;
-  padding: 18px;
-
-  box-shadow: 0 12px 40px #0005;
-}
-
-h2 {
-  margin-top: 0;
-}
-
-
-/* =========================
-   ボタン
-========================= */
-
-button {
-  position: relative;
-  z-index: 5;
-
-  border: 0;
-  border-radius: 10px;
-
-  padding: 12px 16px;
-
-  background: #5e7cff;
-  color: #fff;
-
-  font-weight: 700;
-  font-size: 14px;
-
-  cursor: pointer;
-
-  touch-action: manipulation;
-  pointer-events: auto;
-
-  user-select: none;
-  -webkit-user-select: none;
-
-  transition:
-    transform 0.08s ease,
-    opacity 0.15s ease,
-    filter 0.15s ease;
-}
-
-button:hover {
-  filter: brightness(1.08);
-}
-
-button:active {
-  transform: scale(0.97);
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-
-/* =========================
-   ルーム
-========================= */
-
-.roomRow {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.roomRow button {
-  flex: 0 0 auto;
-}
-
-input {
-  min-width: 130px;
-
-  border-radius: 10px;
-  border: 1px solid #45577d;
-
-  background: #0c1326;
-  color: white;
-
-  padding: 12px;
-
-  text-transform: uppercase;
-
-  font-size: 14px;
-
-  outline: none;
-
-  pointer-events: auto;
-}
-
-input:focus {
-  border-color: #5e7cff;
-}
-
-
-/* =========================
-   画面切り替え
-========================= */
-
-.hidden {
-  display: none !important;
-}
-
-
-/* =========================
-   ルーム待機画面
-========================= */
-
-#roomCode {
-  display: inline-block;
-
-  margin: 8px 0 14px;
-  padding: 12px 20px;
-
-  background: #0c1326;
-  border: 1px solid #45577d;
-  border-radius: 10px;
-
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 5px;
-
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-#roomStatus {
-  opacity: 0.8;
-}
-
-#roomReadyBtn {
-  margin-top: 10px;
-}
-
-#roomBackBtn {
-  margin-top: 10px;
-  margin-left: 6px;
-  background: #33425f;
-}
-
-
-/* =========================
-   お絵描き
-========================= */
-
-.drawGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.drawCard {
-  background: #0c1326;
-  padding: 10px;
-  border-radius: 12px;
-}
-
-.drawCard h3 {
-  margin: 5px 0 8px;
-}
-
-.drawCard canvas {
-  display: block;
 
   width: 100%;
-  height: auto;
-
-  background: #f7f7f2;
-
-  border-radius: 10px;
-
-  touch-action: none;
-
-  cursor: crosshair;
-
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.drawCard button {
-  margin-top: 8px;
-  background: #33425f;
-}
-
-#readyBtn {
-  width: 100%;
-  margin-top: 14px;
-}
-
-#readyMsg {
-  min-height: 20px;
-}
-
-
-/* =========================
-   ゲーム画面
-========================= */
-
-#game {
-  position: relative;
-  z-index: 1;
-}
-
-.scorebar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 
   background: #141c32;
 
-  border-radius: 12px;
-
-  padding: 10px 14px;
-  margin-bottom: 8px;
-}
-
-.scorebar div {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.scorebar b {
-  font-size: 28px;
-}
-
-#roundMsg {
-  font-size: 13px;
-  opacity: 0.8;
-  text-align: center;
-}
-
-#gameCanvas {
-  display: block;
-
-  width: 100%;
-  max-width: 100%;
-
-  aspect-ratio: 2 / 1;
-
-  background: #0d6b6a;
-
-  border-radius: 14px;
-  border: 4px solid #17213a;
-
-  touch-action: none;
-
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.mobileHint {
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.7;
-  margin: 6px;
-}
-
-
-/* =========================
-   結果画面
-========================= */
-
-#result {
-  text-align: center;
-}
-
-#resultTitle {
-  font-size: 42px;
-  margin-bottom: 20px;
-}
-
-
-/* =========================
-   詳細設定
-========================= */
-
-details {
-  margin-top: 18px;
-  opacity: 0.8;
-}
-
-summary {
-  cursor: pointer;
-}
-
-
-/* =========================
-   スマートフォン
-========================= */
-
-@media (max-width: 700px) {
-
-  #app {
-    padding: 8px;
-  }
-
-  .panel {
-    padding: 12px;
-  }
-
-  h1 {
-    font-size: 17px;
-  }
-
-  h2 {
-    font-size: 20px;
-  }
-
-  .drawGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .roomRow {
-    flex-direction: column;
-  }
-
-  .roomRow button,
-  .roomRow input {
-    width: 100%;
-  }
-
-  #roomCode {
-    font-size: 24px;
-    letter-spacing: 4px;
-  }
-
-  #roomBackBtn {
-    margin-left: 0;
-  }
-
-  .scorebar {
-    padding: 8px 10px;
-  }
-
-  .scorebar b {
-    font-size: 24px;
-  }
-
-  .scorebar div {
-    gap: 6px;
-  }
-
-  #roundMsg {
-    font-size: 11px;
-  }
-
-}
-
-
-/* =========================
-   小さいスマホ
-========================= */
-
-@media (max-width: 400px) {
-
-  #app {
-    padding: 5px;
-  }
-
-  .panel {
-    padding: 10px;
-  }
-
-  h1 {
-    font-size: 15px;
-  }
-
-  .scorebar {
-    padding: 6px;
-  }
-
-  .scorebar b {
-    font-size: 21px;
-  }
-
-  .scorebar div {
-    gap: 4px;
-    font-size: 12px;
-  }
-
-}
+  border: 1px solid #2
 ```
