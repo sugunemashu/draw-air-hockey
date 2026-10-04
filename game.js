@@ -326,16 +326,42 @@ b.drawScale=105;
       }
       this.draw();requestAnimationFrame(tt=>this.loop(tt));
     }
-    draw(){
-      const c=this.ctx;c.clearRect(0,0,this.W,this.H);
-      c.fillStyle="#0b7775";c.fillRect(0,0,this.W,this.H);
-      c.strokeStyle="#bff9ef";c.lineWidth=4;c.strokeRect(10,10,this.W-20,this.H-20);
-      c.beginPath();c.moveTo(this.W/2,10);c.lineTo(this.W/2,this.H-10);c.stroke();
-      c.beginPath();c.arc(this.W/2,this.H/2,90,0,Math.PI*2);c.stroke();
-      c.fillStyle="#092e38";c.fillRect(0,this.H/2-130,18,260);c.fillRect(this.W-18,this.H/2-130,18,260);
-      this.mallets.forEach((b,i)=>this.drawBody(b,i===this.localSide?"#ffcf4a":"#ff6b9d"));
-      this.drawBody(this.puck,this.currentPuck===this.localSide?"#fff":"#d7e4ff");
+   drawBody(b,fill){
+  const c=this.ctx;
+
+  c.save();
+  c.translate(b.position.x,b.position.y);
+  c.rotate(b.angle);
+
+  c.fillStyle=fill;
+  c.strokeStyle="#18213a";
+  c.lineWidth=3;
+
+  const shape=b.drawShape;
+  const scale=b.drawScale;
+
+  if(shape && shape.length>2){
+    c.beginPath();
+
+    c.moveTo(
+      shape[0].x*scale,
+      shape[0].y*scale
+    );
+
+    for(const p of shape.slice(1)){
+      c.lineTo(
+        p.x*scale,
+        p.y*scale
+      );
     }
+
+    c.closePath();
+    c.fill();
+    c.stroke();
+  }
+
+  c.restore();
+}
    drawBody(b,fill){
   const c=this.ctx;
 
