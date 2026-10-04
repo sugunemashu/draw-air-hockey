@@ -347,17 +347,31 @@ b.drawScale=105;
   c.strokeStyle="#18213a";
   c.lineWidth=3;
 
-  const shape=b.drawShape;
+ const shape=b.drawShape;
+const scale=b.drawScale;
 
-  if(shape && shape.length>2){
-    c.beginPath();
+if(shape && shape.length>2){
+  c.beginPath();
 
-   drawBody(b,fill){
-  const c=this.ctx;
+  c.moveTo(
+    shape[0].x*scale,
+    shape[0].y*scale
+  );
 
-  c.save();
-  c.translate(b.position.x,b.position.y);
-  c.rotate(b.angle);
+  for(const p of shape.slice(1)){
+    c.lineTo(
+      p.x*scale,
+      p.y*scale
+    );
+  }
+
+  c.closePath();
+  c.fill();
+  c.stroke();
+}
+
+c.restore();
+}
 
   c.fillStyle=fill;
   c.strokeStyle="#18213a";
