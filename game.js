@@ -21,7 +21,6 @@
 
   // ---------- Drawing ----------
   function setupPad(canvasId,key){
-function setupPad(canvasId,key){
   const c=$(canvasId), ctx=c.getContext("2d");
   ctx.lineWidth=5;
   ctx.lineCap="round";
