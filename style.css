@@ -1,28 +1,384 @@
-*{box-sizing:border-box}
-html,body{margin:0;background:#0b1020;color:#eef4ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-body{min-height:100vh;display:flex;justify-content:center}
-#app{width:min(1100px,100%);padding:14px}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-h1{font-size:20px;letter-spacing:2px;margin:0}
-#status{font-size:12px;opacity:.8}
-.panel{background:#141c32;border:1px solid #2b3a5e;border-radius:16px;padding:18px;box-shadow:0 12px 40px #0005}
-h2{margin-top:0}
-button{border:0;border-radius:10px;padding:12px 16px;background:#5e7cff;color:#fff;font-weight:700;cursor:pointer}
-button:disabled{opacity:.5}
-.roomRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-input{min-width:130px;border-radius:10px;border:1px solid #45577d;background:#0c1326;color:white;padding:12px;text-transform:uppercase}
-.hidden{display:none!important}
-.drawGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.drawCard{background:#0c1326;padding:10px;border-radius:12px}
-.drawCard h3{margin:5px 0 8px}
-.drawCard canvas{display:block;width:100%;height:auto;background:#f7f7f2;border-radius:10px;touch-action:none}
-.drawCard button{margin-top:8px;background:#33425f}
-#readyBtn{width:100%;margin-top:14px}
-.scorebar{display:flex;justify-content:space-between;align-items:center;background:#141c32;border-radius:12px;padding:10px 14px;margin-bottom:8px}
-.scorebar div{display:flex;gap:10px;align-items:center}
-.scorebar b{font-size:28px}
-#roundMsg{font-size:13px;opacity:.8}
-#gameCanvas{display:block;width:100%;max-width:100%;aspect-ratio:2/1;background:#0d6b6a;border-radius:14px;touch-action:none;border:4px solid #17213a}
-.mobileHint{text-align:center;font-size:12px;opacity:.7;margin:6px}
-details{margin-top:18px;opacity:.8}
-@media(max-width:700px){.drawGrid{grid-template-columns:1fr}#app{padding:8px}.panel{padding:12px}h1{font-size:17px}}
+* {
+  box-sizing: border-box;
+}
+
+
+html,
+body {
+  margin: 0;
+  background: #0b1020;
+  color: #eef4ff;
+
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+
+body {
+  min-height: 100vh;
+
+  display: flex;
+  justify-content: center;
+}
+
+
+#app {
+  width: min(1100px, 100%);
+
+  padding: 14px;
+}
+
+
+header {
+  display: flex;
+
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 10px;
+}
+
+
+h1 {
+  font-size: 20px;
+
+  letter-spacing: 2px;
+
+  margin: 0;
+}
+
+
+#status {
+  font-size: 12px;
+
+  opacity: .8;
+}
+
+
+.panel {
+  background: #141c32;
+
+  border: 1px solid #2b3a5e;
+
+  border-radius: 16px;
+
+  padding: 18px;
+
+  box-shadow: 0 12px 40px #0005;
+}
+
+
+h2 {
+  margin-top: 0;
+}
+
+
+button {
+  border: 0;
+
+  border-radius: 10px;
+
+  padding: 12px 16px;
+
+  background: #5e7cff;
+
+  color: #fff;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+button:disabled {
+  opacity: .5;
+
+  cursor: default;
+}
+
+
+.roomRow {
+  display: flex;
+
+  gap: 8px;
+
+  flex-wrap: wrap;
+
+  margin-top: 10px;
+}
+
+
+input {
+  min-width: 130px;
+
+  border-radius: 10px;
+
+  border: 1px solid #45577d;
+
+  background: #0c1326;
+
+  color: white;
+
+  padding: 12px;
+
+  text-transform: uppercase;
+}
+
+
+.hidden {
+  display: none !important;
+}
+
+
+/* =========================
+   DRAWING
+========================= */
+
+.drawGrid {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 12px;
+}
+
+
+.drawCard {
+
+  background: #0c1326;
+
+  padding: 10px;
+
+  border-radius: 12px;
+}
+
+
+.drawCard h3 {
+
+  margin: 5px 0 8px;
+}
+
+
+.drawTools {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 16px;
+
+  flex-wrap: wrap;
+
+  margin-bottom: 10px;
+
+  padding: 8px;
+
+  background: #141d34;
+
+  border-radius: 10px;
+}
+
+
+.drawTools label {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  font-size: 13px;
+}
+
+
+.drawTools input[type="color"] {
+
+  min-width: 42px;
+
+  width: 42px;
+
+  height: 32px;
+
+  padding: 2px;
+
+  cursor: pointer;
+
+  text-transform: none;
+}
+
+
+.drawTools input[type="range"] {
+
+  min-width: 100px;
+
+  width: 100px;
+
+  padding: 0;
+
+  cursor: pointer;
+}
+
+
+.drawTools span {
+
+  min-width: 34px;
+
+  font-size: 12px;
+
+  opacity: .8;
+}
+
+
+.drawCard canvas {
+
+  display: block;
+
+  width: 100%;
+
+  height: auto;
+
+  background: #f7f7f2;
+
+  border-radius: 10px;
+
+  touch-action: none;
+
+  cursor: crosshair;
+}
+
+
+.drawCard button {
+
+  margin-top: 8px;
+
+  background: #33425f;
+}
+
+
+#readyBtn {
+
+  width: 100%;
+
+  margin-top: 14px;
+}
+
+
+
+/* =========================
+   GAME
+========================= */
+
+.scorebar {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  background: #141c32;
+
+  border-radius: 12px;
+
+  padding: 10px 14px;
+
+  margin-bottom: 8px;
+}
+
+
+.scorebar div {
+
+  display: flex;
+
+  gap: 10px;
+
+  align-items: center;
+}
+
+
+.scorebar b {
+
+  font-size: 28px;
+}
+
+
+#roundMsg {
+
+  font-size: 13px;
+
+  opacity: .8;
+}
+
+
+#gameCanvas {
+
+  display: block;
+
+  width: 100%;
+
+  max-width: 100%;
+
+  aspect-ratio: 2 / 1;
+
+  background: #0d6b6a;
+
+  border-radius: 14px;
+
+  touch-action: none;
+
+  border: 4px solid #17213a;
+}
+
+
+.mobileHint {
+
+  text-align: center;
+
+  font-size: 12px;
+
+  opacity: .7;
+
+  margin: 6px;
+}
+
+
+details {
+
+  margin-top: 18px;
+
+  opacity: .8;
+}
+
+
+@media(max-width:700px) {
+
+  .drawGrid {
+
+    grid-template-columns: 1fr;
+
+  }
+
+  #app {
+
+    padding: 8px;
+
+  }
+
+  .panel {
+
+    padding: 12px;
+
+  }
+
+  h1 {
+
+    font-size: 17px;
+
+  }
+
+}
