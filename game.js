@@ -92,13 +92,26 @@
   }
 }
 function normalizePolygon(points,w,h){
-    const minx=Math.min(...points.map(p=>p.x)), maxx=Math.max(...points.map(p=>p.x));
-    const miny=Math.min(...points.map(p=>p.y)), maxy=Math.max(...points.map(p=>p.y));
-    const cx=(minx+maxx)/2, cy=(miny+maxy)/2, scale=Math.max(maxx-minx,maxy-miny)||1;
-    // Reduce to max 28 vertices for stable physics.
-    const step=Math.max(1,Math.ceil(points.length/28));
-    return points.filter((_,i)=>i%step===0).map(p=>({x:(p.x-cx)/scale,y:(p.y-cy)/scale}));
-  }
+  const minx=Math.min(...points.map(p=>p.x));
+  const maxx=Math.max(...points.map(p=>p.x));
+  const miny=Math.min(...points.map(p=>p.y));
+  const maxy=Math.max(...points.map(p=>p.y));
+
+  const cx=(minx+maxx)/2;
+  const cy=(miny+maxy)/2;
+  const scale=Math.max(maxx-minx,maxy-miny)||1;
+
+  // 輪郭をできるだけ残す
+  const maxPoints=80;
+  const step=Math.max(1,Math.ceil(points.length/maxPoints));
+
+  return points
+    .filter((_,i)=>i%step===0)
+    .map(p=>({
+      x:(p.x-cx)/scale,
+      y:(p.y-cy)/scale
+    }));
+}
 setupPad("puckCanvas","puck"); setupPad("malletCanvas","mallet");
   // ---------- Supabase messaging ----------
   async function openChannel(room){
