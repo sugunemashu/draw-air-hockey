@@ -21,18 +21,76 @@
 
   // ---------- Drawing ----------
   function setupPad(canvasId,key){
-    const c=$(canvasId), ctx=c.getContext("2d");
-    ctx.lineWidth=5; ctx.lineCap="round"; ctx.lineJoin="round"; ctx.strokeStyle="#111";
-    let drawing=false, pts=[];
-    function pos(e){const r=c.getBoundingClientRect(); const p=e.touches?e.touches[0]:e; return {x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height};}
-    function down(e){e.preventDefault();drawing=true;pts=[pos(e)];ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y)}
-    function move(e){if(!drawing)return;e.preventDefault();const p=pos(e);pts.push(p);ctx.lineTo(p.x,p.y);ctx.stroke()}
-    function up(e){if(!drawing)return;drawing=false;if(pts.length>3){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(const p of pts.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.stroke();state.drawings[key]=normalizePolygon(pts,c.width,c.height)}}
-    ["pointerdown"].forEach(x=>c.addEventListener(x,down)); c.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
-   const clearBtn = $(`[data-clear="${key}"]`);
-if (clearBtn) {
-  clearBtn.onclick=()=>{ctx.clearRect(0,0,c.width,c.height);state.drawings[key]=null};
-}
+function setupPad(canvasId,key){
+  const c=$(canvasId), ctx=c.getContext("2d");
+  ctx.lineWidth=5;
+  ctx.lineCap="round";
+  ctx.lineJoin="round";
+  ctx.strokeStyle="#111";
+
+  let drawing=false, pts=[];
+
+  function pos(e){
+    const r=c.getBoundingClientRect();
+    const p=e.touches?e.touches[0]:e;
+    return {
+      x:(p.clientX-r.left)*c.width/r.width,
+      y:(p.clientY-r.top)*c.height/r.height
+    };
+  }
+
+  function down(e){
+    e.preventDefault();
+    drawing=true;
+    pts=[pos(e)];
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x,pts[0].y);
+  }
+
+  function move(e){
+    if(!drawing)return;
+    e.preventDefault();
+    const p=pos(e);
+    pts.push(p);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+  }
+
+  function up(e){
+    if(!drawing)return;
+    drawing=false;
+
+    if(pts.length>3){
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x,pts[0].y);
+
+      for(const p of pts.slice(1)){
+        ctx.lineTo(p.x,p.y);
+      }
+
+      ctx.closePath();
+      ctx.stroke();
+
+      state.drawings[key]=normalizePolygon(
+        pts,
+        c.width,
+        c.height
+      );
+    }
+  }
+
+  c.addEventListener("pointerdown",down);
+  c.addEventListener("pointermove",move);
+  window.addEventListener("pointerup",up);
+
+  const clearBtn=$(`[data-clear="${key}"]`);
+
+  if(clearBtn){
+    clearBtn.onclick=()=>{
+      ctx.clearRect(0,0,c.width,c.height);
+      state.drawings[key]=null;
+    };
+  }
 }
 function normalizePolygon(points,w,h){
     const minx=Math.min(...points.map(p=>p.x)), maxx=Math.max(...points.map(p=>p.x));
