@@ -266,6 +266,8 @@ makeMallets(){
     const side=i===0?"host":"guest";
     const d=this.drawings[side]?.mallet;
 
+console.log("★ マレットの形データ:", side, d);
+
     const x=i===0?220:780;
     const y=this.H/2;
 
