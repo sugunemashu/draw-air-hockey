@@ -109,9 +109,15 @@ setupPad("puckCanvas","puck"); setupPad("malletCanvas","mallet");
     state.channel.on("broadcast",{event:"ready"},({payload})=>onReady(payload));
     state.channel.on("broadcast",{event:"start"},({payload})=>startFromHost(payload));
     state.channel.on("broadcast",{event:"reset"},({payload})=>resetRound(payload));
-    const res=await state.channel.subscribe();
-    console.log("Supabase subscribe result:", res);
-    if(res!=="SUBSCRIBED") throw new Error("通信チャンネルに接続できません");
+  const res=await state.channel.subscribe((status)=>{
+  console.log("Supabase channel status:", status);
+});
+
+console.log("Supabase subscribe result:", res);
+
+if(res!=="SUBSCRIBED") {
+  throw new Error("通信チャンネルに接続できません: "+res);
+}
   }
   function send(event,payload){state.channel?.send({type:"broadcast",event,payload:{...payload,from:state.playerId}})}
   function onSignal(p){
