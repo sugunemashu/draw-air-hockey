@@ -202,8 +202,9 @@ await state.channel.subscribe((status)=>{
       this.drawings=drawings;this.localSide=state.role==="host"?0:1;
       this.makeArena();this.makePuck();this.makeMallets();
       this.bindInput();
-      this.last=performance.now();requestAnimationFrame(t=>this.loop(t));
-    }
+this.last=performance.now();
+this.running=true;
+requestAnimationFrame(t=>this.loop(t));
     resize(){this.canvas.width=this.W;this.canvas.height=this.H}
     makeArena(){
       const o={isStatic:true,restitution:1,friction:0};
