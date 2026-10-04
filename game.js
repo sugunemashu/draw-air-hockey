@@ -14,12 +14,65 @@
 
   /* =========================================================
      Supabase
+     
+     config.js の書き方が
+     
+     const SUPABASE_URL = "...";
+     または
+     window.SUPABASE_URL = "...";
+     
+     のどちらでも動くようにする
   ========================================================= */
+
+  const SUPABASE_URL_VALUE =
+    typeof SUPABASE_URL !== "undefined"
+      ? SUPABASE_URL
+      : (
+          typeof window !== "undefined"
+            ? window.SUPABASE_URL
+            : undefined
+        );
+
+
+  const SUPABASE_ANON_KEY_VALUE =
+    typeof SUPABASE_ANON_KEY !== "undefined"
+      ? SUPABASE_ANON_KEY
+      : (
+          typeof window !== "undefined"
+            ? window.SUPABASE_ANON_KEY
+            : undefined
+        );
+
+
+  if(
+    !SUPABASE_URL_VALUE ||
+    !SUPABASE_ANON_KEY_VALUE
+  ){
+
+    console.error(
+      "Supabase設定が読み込めていません。",
+      {
+        SUPABASE_URL:
+          SUPABASE_URL_VALUE,
+
+        SUPABASE_ANON_KEY:
+          SUPABASE_ANON_KEY_VALUE
+            ? "設定あり"
+            : "設定なし"
+      }
+    );
+
+
+    throw new Error(
+      "Supabaseの設定が見つかりません。config.jsを確認してください。"
+    );
+  }
+
 
   const supabaseClient =
     window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
+      SUPABASE_URL_VALUE,
+      SUPABASE_ANON_KEY_VALUE
     );
 
 
@@ -1114,8 +1167,6 @@
     /* =======================================================
        ARENA
        
-       ★ 今回の重要部分
-       
        ・上下は完全に壁
        ・左右はゴール部分だけ開ける
        ・それ以外は壁
@@ -1158,10 +1209,6 @@
         this.world,
         [
 
-          /*
-           * 上
-           */
-
           Matter.Bodies.rectangle(
             this.W/2,
             -10,
@@ -1170,10 +1217,6 @@
             wall
           ),
 
-
-          /*
-           * 下
-           */
 
           Matter.Bodies.rectangle(
             this.W/2,
@@ -1184,10 +1227,6 @@
           ),
 
 
-          /*
-           * 左上
-           */
-
           Matter.Bodies.rectangle(
             -10,
             upperCenter,
@@ -1196,10 +1235,6 @@
             wall
           ),
 
-
-          /*
-           * 左下
-           */
 
           Matter.Bodies.rectangle(
             -10,
@@ -1210,10 +1245,6 @@
           ),
 
 
-          /*
-           * 右上
-           */
-
           Matter.Bodies.rectangle(
             this.W+10,
             upperCenter,
@@ -1222,10 +1253,6 @@
             wall
           ),
 
-
-          /*
-           * 右下
-           */
 
           Matter.Bodies.rectangle(
             this.W+10,
@@ -1504,11 +1531,6 @@
       );
 
 
-      /*
-       * 0.9秒間だけ
-       * 新しいラウンドを待つ
-       */
-
       this.roundPause=
         performance.now()+900;
     }
@@ -1557,10 +1579,6 @@
         return;
       }
 
-
-      /*
-       * パック形状を交代
-       */
 
       const nextPlayer=
         this.currentPuck===0
@@ -1931,10 +1949,7 @@
 
 
     /* =======================================================
-       ★ OUT OF BOUNDS SAFETY
-       
-       Matterの壁をすり抜けた場合でも
-       パックを場外に放置しない。
+       OUT OF BOUNDS SAFETY
     ======================================================= */
 
     keepPuckInside(){
@@ -1952,13 +1967,6 @@
         this.puck.velocity;
 
 
-      /*
-       * ゴール判定範囲内なら
-       * 場外へ出るのを許可する。
-       *
-       * ここはscore()が処理する。
-       */
-
       const inGoal=
         (
           p.y>
@@ -1971,10 +1979,6 @@
             this.goalW/2
         );
 
-
-      /*
-       * 左右
-       */
 
       if(
         p.x<0 &&
@@ -2040,10 +2044,6 @@
       }
 
 
-      /*
-       * 上下
-       */
-
       if(
         p.y<0
       ){
@@ -2106,7 +2106,7 @@
 
 
     /* =======================================================
-       ★ 速度制限
+       速度制限
     ======================================================= */
 
     limitPuckSpeed(){
@@ -2331,7 +2331,7 @@
 
 
       /*
-       * ★ 絶対にここでループを止めない
+       * ループ継続
        */
 
       requestAnimationFrame(
