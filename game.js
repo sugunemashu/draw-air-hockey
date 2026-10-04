@@ -666,17 +666,105 @@
     );
 
 
-    const result =
-      await state.channel.subscribe();
+    // ★ここだけ修正
+    // subscribe() の戻り値を "SUBSCRIBED" と比較しない
+
+    await new Promise(
+      (resolve, reject) => {
+
+        let finished = false;
 
 
-    if (result !== "SUBSCRIBED") {
+        const success = () => {
 
-      throw new Error(
-        "通信チャンネルに接続できません"
-      );
+          if (finished) {
+            return;
+          }
 
-    }
+          finished = true;
+
+          resolve();
+
+        };
+
+
+        const failure = reason => {
+
+          if (finished) {
+            return;
+          }
+
+          finished = true;
+
+          reject(
+            new Error(
+              "通信チャンネルに接続できません: " +
+              reason
+            )
+          );
+
+        };
+
+
+        state.channel.subscribe(
+          status => {
+
+            console.log(
+              "[DRAW AIR HOCKEY] Realtime status:",
+              status
+            );
+
+
+            if (
+              status ===
+              "SUBSCRIBED"
+            ) {
+
+              success();
+
+            }
+            else if (
+              status ===
+              "CHANNEL_ERROR"
+            ) {
+
+              failure(
+                "CHANNEL_ERROR"
+              );
+
+            }
+            else if (
+              status ===
+              "TIMED_OUT"
+            ) {
+
+              failure(
+                "TIMED_OUT"
+              );
+
+            }
+
+          }
+        );
+
+
+        setTimeout(
+          () => {
+
+            if (!finished) {
+
+              failure(
+                "接続タイムアウト"
+              );
+
+            }
+
+          },
+          20000
+        );
+
+      }
+    );
 
   }
 
