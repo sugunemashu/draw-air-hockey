@@ -228,9 +228,9 @@ resize(){
       return Matter.Bodies.fromVertices(x,y,[verts],{restitution:.95,friction:.01,frictionAir:.002,...options},true);
     }
     makePuck(){
-      const d=this.drawings[this.currentPuck]?.puck;
-      this.puck=this.bodyFromDrawing(d,this.W/2,this.H/2,70);
-      this.puck.label="puck";this.puck.playerShape=this.currentPuck;
+  const side=this.currentPuck===0?"host":"guest";
+  const d=this.drawings[side]?.puck;
+  this.puck=this.bodyFromDrawing(d,this.W/2,this.H/2,70);
       Matter.World.add(this.world,this.puck);
     }
     makeMallets(){
